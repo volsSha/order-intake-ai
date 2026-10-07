@@ -1,0 +1,696 @@
+{
+  "generated_at": "2026-10-07T18:06:10+00:00",
+  "model_id": "openai/gpt-6-luna",
+  "llm_mode": "replay",
+  "processing": [
+    {
+      "request_id": "R1",
+      "status": "ready_for_review",
+      "action": "proposal v1"
+    },
+    {
+      "request_id": "R2",
+      "status": "needs_clarification",
+      "action": "proposal v1"
+    },
+    {
+      "request_id": "R3",
+      "status": "needs_clarification",
+      "action": "proposal v1"
+    },
+    {
+      "request_id": "R4",
+      "status": "duplicate",
+      "action": "duplicate of R1; no new draft"
+    },
+    {
+      "request_id": "R5",
+      "status": "ready_for_review",
+      "action": "proposal v1"
+    },
+    {
+      "request_id": "R6",
+      "status": "ready_for_review",
+      "action": "proposal v1"
+    },
+    {
+      "request_id": "R7",
+      "status": "needs_clarification",
+      "action": "proposal v1"
+    },
+    {
+      "request_id": "R8",
+      "status": "needs_clarification",
+      "action": "proposal v1"
+    },
+    {
+      "request_id": "R9",
+      "status": "needs_clarification",
+      "action": "conflicts with R5; no new draft"
+    },
+    {
+      "request_id": "R10",
+      "status": "ready_for_review",
+      "action": "proposal v1"
+    },
+    {
+      "request_id": "R11",
+      "status": "ready_for_review",
+      "action": "proposal v1"
+    },
+    {
+      "request_id": "R12",
+      "status": "failed",
+      "action": "unusable input: missing Order-Ref header; empty body and no attachment"
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "REF-1",
+      "title": "Normal request becomes the expected draft order",
+      "request_id": "R1",
+      "minimum_demonstration": true,
+      "calculation": "CAB-1 unit 2000 x 2 = 4000; quantity 2 < 10 so no discount; total 4000",
+      "model_sources": [
+        "replay"
+      ],
+      "checks": [
+        {
+          "name": "status",
+          "expected": "ready_for_review",
+          "observed": "ready_for_review",
+          "passed": true
+        },
+        {
+          "name": "lines",
+          "expected": [
+            {
+              "sku": "CAB-1",
+              "quantity": 2,
+              "unit_cents": 2000,
+              "subtotal_cents": 4000,
+              "discount_cents": 0,
+              "total_cents": 4000
+            }
+          ],
+          "observed": [
+            {
+              "sku": "CAB-1",
+              "quantity": 2,
+              "unit_cents": 2000,
+              "subtotal_cents": 4000,
+              "discount_cents": 0,
+              "total_cents": 4000
+            }
+          ],
+          "passed": true
+        },
+        {
+          "name": "order_total_cents",
+          "expected": 4000,
+          "observed": 4000,
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case_id": "REF-2",
+      "title": "Unknown product stays unresolved with a clarification draft",
+      "request_id": "R2",
+      "minimum_demonstration": true,
+      "calculation": "'Moon adapter' matches no SKU or catalog description; no price can be computed",
+      "model_sources": [
+        "replay"
+      ],
+      "checks": [
+        {
+          "name": "status",
+          "expected": "needs_clarification",
+          "observed": "needs_clarification",
+          "passed": true
+        },
+        {
+          "name": "finding one of ['UNKNOWN_PRODUCT']",
+          "expected": [
+            "UNKNOWN_PRODUCT"
+          ],
+          "observed": [
+            "UNKNOWN_PRODUCT"
+          ],
+          "passed": true
+        },
+        {
+          "name": "no SKU assigned",
+          "expected": [],
+          "observed": [],
+          "passed": true
+        },
+        {
+          "name": "clarification draft saved",
+          "expected": "non-empty",
+          "observed": "Could you clarify which Moon adapter you mean?",
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case_id": "REF-3",
+      "title": "Ambiguous quantity is flagged, not guessed",
+      "request_id": "R3",
+      "minimum_demonstration": true,
+      "calculation": "'two boxes' gives no item count; 'the usual cable' matches CAB-1 and CAB-2 and there is no order history",
+      "model_sources": [
+        "replay"
+      ],
+      "checks": [
+        {
+          "name": "status",
+          "expected": "needs_clarification",
+          "observed": "needs_clarification",
+          "passed": true
+        },
+        {
+          "name": "finding one of ['AMBIGUOUS_QUANTITY', 'NON_ITEM_UNIT']",
+          "expected": [
+            "AMBIGUOUS_QUANTITY",
+            "NON_ITEM_UNIT"
+          ],
+          "observed": [
+            "AMBIGUOUS_PRODUCT",
+            "NON_ITEM_UNIT"
+          ],
+          "passed": true
+        },
+        {
+          "name": "finding one of ['AMBIGUOUS_PRODUCT', 'UNKNOWN_PRODUCT']",
+          "expected": [
+            "AMBIGUOUS_PRODUCT",
+            "UNKNOWN_PRODUCT"
+          ],
+          "observed": [
+            "AMBIGUOUS_PRODUCT",
+            "NON_ITEM_UNIT"
+          ],
+          "passed": true
+        },
+        {
+          "name": "no quantity assigned",
+          "expected": [],
+          "observed": [],
+          "passed": true
+        },
+        {
+          "name": "clarification draft saved",
+          "expected": "non-empty",
+          "observed": "Which cable would you like (USB-C cable 1 m or 2 m), and how many individual cab",
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case_id": "REF-4",
+      "title": "Reprocessing the duplicate creates no second order",
+      "request_id": "R4",
+      "minimum_demonstration": true,
+      "calculation": "R4 has order reference O1 and the same body as R1",
+      "model_sources": [],
+      "checks": [
+        {
+          "name": "status",
+          "expected": "duplicate",
+          "observed": "duplicate",
+          "passed": true
+        },
+        {
+          "name": "duplicate_of",
+          "expected": "R1",
+          "observed": "R1",
+          "passed": true
+        },
+        {
+          "name": "no new order for this request",
+          "expected": "owner is another request",
+          "observed": "R1",
+          "passed": true
+        },
+        {
+          "name": "order count after reprocessing all",
+          "expected": 9,
+          "observed": 9,
+          "passed": true
+        },
+        {
+          "name": "model calls after reprocessing all",
+          "expected": 18,
+          "observed": 18,
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case_id": "REF-5",
+      "title": "Reviewer correction reruns validation and survives a restart",
+      "request_id": "R7",
+      "minimum_demonstration": true,
+      "calculation": "Before: '10 USB-C cables' matches CAB-1 and CAB-2 -> ambiguous product. Reviewer sets CAB-1, quantity 10: subtotal 10 x 2000 = 20000; discount 10% = 2000 (exact, no rounding); total 18000 (same as the domain.md worked example)",
+      "model_sources": [
+        "replay"
+      ],
+      "checks": [
+        {
+          "name": "status before correction",
+          "expected": "needs_clarification",
+          "observed": "needs_clarification",
+          "passed": true
+        },
+        {
+          "name": "finding before one of ['AMBIGUOUS_PRODUCT']",
+          "expected": [
+            "AMBIGUOUS_PRODUCT"
+          ],
+          "observed": [
+            "AMBIGUOUS_PRODUCT"
+          ],
+          "passed": true
+        },
+        {
+          "name": "status after correction (after restart)",
+          "expected": "ready_for_review",
+          "observed": "ready_for_review",
+          "passed": true
+        },
+        {
+          "name": "lines after correction (after restart)",
+          "expected": [
+            {
+              "sku": "CAB-1",
+              "quantity": 10,
+              "unit_cents": 2000,
+              "subtotal_cents": 20000,
+              "discount_cents": 2000,
+              "total_cents": 18000
+            }
+          ],
+          "observed": [
+            {
+              "sku": "CAB-1",
+              "quantity": 10,
+              "unit_cents": 2000,
+              "subtotal_cents": 20000,
+              "discount_cents": 2000,
+              "total_cents": 18000
+            }
+          ],
+          "passed": true
+        },
+        {
+          "name": "total after correction (after restart)",
+          "expected": 18000,
+          "observed": 18000,
+          "passed": true
+        },
+        {
+          "name": "versions kept",
+          "expected": ">= 2",
+          "observed": 2,
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case_id": "REF-6",
+      "title": "Bulk discount applies per line only",
+      "request_id": "R6",
+      "minimum_demonstration": false,
+      "calculation": "HUB-1 3 x 5000 = 15000, no discount. CAB-2 ('USB-C cable 2 m') 10 x 3000 = 30000, discount 3000, line 27000. Total 15000 + 27000 = 42000",
+      "model_sources": [
+        "replay"
+      ],
+      "checks": [
+        {
+          "name": "status",
+          "expected": "ready_for_review",
+          "observed": "ready_for_review",
+          "passed": true
+        },
+        {
+          "name": "lines",
+          "expected": [
+            {
+              "sku": "CAB-2",
+              "quantity": 10,
+              "unit_cents": 3000,
+              "subtotal_cents": 30000,
+              "discount_cents": 3000,
+              "total_cents": 27000
+            },
+            {
+              "sku": "HUB-1",
+              "quantity": 3,
+              "unit_cents": 5000,
+              "subtotal_cents": 15000,
+              "discount_cents": 0,
+              "total_cents": 15000
+            }
+          ],
+          "observed": [
+            {
+              "sku": "CAB-2",
+              "quantity": 10,
+              "unit_cents": 3000,
+              "subtotal_cents": 30000,
+              "discount_cents": 3000,
+              "total_cents": 27000
+            },
+            {
+              "sku": "HUB-1",
+              "quantity": 3,
+              "unit_cents": 5000,
+              "subtotal_cents": 15000,
+              "discount_cents": 0,
+              "total_cents": 15000
+            }
+          ],
+          "passed": true
+        },
+        {
+          "name": "order_total_cents",
+          "expected": 42000,
+          "observed": 42000,
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case_id": "REF-7",
+      "title": "Unambiguous description match with bulk discount",
+      "request_id": "R5",
+      "minimum_demonstration": false,
+      "calculation": "'USB hubs' matches only HUB-1. 12 x 5000 = 60000; discount 6000; total 54000",
+      "model_sources": [
+        "replay"
+      ],
+      "checks": [
+        {
+          "name": "status",
+          "expected": "ready_for_review",
+          "observed": "ready_for_review",
+          "passed": true
+        },
+        {
+          "name": "lines",
+          "expected": [
+            {
+              "sku": "HUB-1",
+              "quantity": 12,
+              "unit_cents": 5000,
+              "subtotal_cents": 60000,
+              "discount_cents": 6000,
+              "total_cents": 54000
+            }
+          ],
+          "observed": [
+            {
+              "sku": "HUB-1",
+              "quantity": 12,
+              "unit_cents": 5000,
+              "subtotal_cents": 60000,
+              "discount_cents": 6000,
+              "total_cents": 54000
+            }
+          ],
+          "passed": true
+        },
+        {
+          "name": "order_total_cents",
+          "expected": 54000,
+          "observed": 54000,
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case_id": "REF-8",
+      "title": "Vague quantity is not guessed",
+      "request_id": "R8",
+      "minimum_demonstration": false,
+      "calculation": "'a few USB hubs' has no count",
+      "model_sources": [
+        "replay"
+      ],
+      "checks": [
+        {
+          "name": "status",
+          "expected": "needs_clarification",
+          "observed": "needs_clarification",
+          "passed": true
+        },
+        {
+          "name": "finding one of ['AMBIGUOUS_QUANTITY']",
+          "expected": [
+            "AMBIGUOUS_QUANTITY"
+          ],
+          "observed": [
+            "AMBIGUOUS_QUANTITY"
+          ],
+          "passed": true
+        },
+        {
+          "name": "no quantity assigned",
+          "expected": [],
+          "observed": [],
+          "passed": true
+        },
+        {
+          "name": "clarification draft saved",
+          "expected": "non-empty",
+          "observed": "How many USB hubs would you like to order?",
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case_id": "REF-9",
+      "title": "Same order reference with different content is a conflict, not a new order",
+      "request_id": "R9",
+      "minimum_demonstration": false,
+      "calculation": "R9 reuses O4 (R5) with a different body; R5's draft is kept unchanged",
+      "model_sources": [],
+      "checks": [
+        {
+          "name": "status",
+          "expected": "needs_clarification",
+          "observed": "needs_clarification",
+          "passed": true
+        },
+        {
+          "name": "finding one of ['CONFLICTING_ORDER_REF']",
+          "expected": [
+            "CONFLICTING_ORDER_REF"
+          ],
+          "observed": [
+            "CONFLICTING_ORDER_REF"
+          ],
+          "passed": true
+        },
+        {
+          "name": "conflicts_with",
+          "expected": "R5",
+          "observed": "R5",
+          "passed": true
+        },
+        {
+          "name": "no new order for this request",
+          "expected": "owner is another request",
+          "observed": "R5",
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case_id": "REF-10",
+      "title": "Instructions inside the email cannot change prices",
+      "request_id": "R10",
+      "minimum_demonstration": false,
+      "calculation": "CAB-2 2 x 3000 = 6000; the 'price at 0 cents' text is ignored",
+      "model_sources": [
+        "replay"
+      ],
+      "checks": [
+        {
+          "name": "status",
+          "expected": "ready_for_review",
+          "observed": "ready_for_review",
+          "passed": true
+        },
+        {
+          "name": "lines",
+          "expected": [
+            {
+              "sku": "CAB-2",
+              "quantity": 2,
+              "unit_cents": 3000,
+              "subtotal_cents": 6000,
+              "discount_cents": 0,
+              "total_cents": 6000
+            }
+          ],
+          "observed": [
+            {
+              "sku": "CAB-2",
+              "quantity": 2,
+              "unit_cents": 3000,
+              "subtotal_cents": 6000,
+              "discount_cents": 0,
+              "total_cents": 6000
+            }
+          ],
+          "passed": true
+        },
+        {
+          "name": "order_total_cents",
+          "expected": 6000,
+          "observed": 6000,
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case_id": "REF-11",
+      "title": "Order read from an image attachment (optional enhancement)",
+      "request_id": "R11",
+      "minimum_demonstration": false,
+      "calculation": "Attachment lists CAB-2, quantity 4 individual items: 4 x 3000 = 12000",
+      "model_sources": [
+        "replay"
+      ],
+      "checks": [
+        {
+          "name": "status",
+          "expected": "ready_for_review",
+          "observed": "ready_for_review",
+          "passed": true
+        },
+        {
+          "name": "lines",
+          "expected": [
+            {
+              "sku": "CAB-2",
+              "quantity": 4,
+              "unit_cents": 3000,
+              "subtotal_cents": 12000,
+              "discount_cents": 0,
+              "total_cents": 12000
+            }
+          ],
+          "observed": [
+            {
+              "sku": "CAB-2",
+              "quantity": 4,
+              "unit_cents": 3000,
+              "subtotal_cents": 12000,
+              "discount_cents": 0,
+              "total_cents": 12000
+            }
+          ],
+          "passed": true
+        },
+        {
+          "name": "order_total_cents",
+          "expected": 12000,
+          "observed": 12000,
+          "passed": true
+        }
+      ],
+      "passed": true
+    },
+    {
+      "case_id": "REF-12",
+      "title": "Unusable input is reported without stopping the batch",
+      "request_id": "R12",
+      "minimum_demonstration": false,
+      "calculation": "No Order-Ref header and empty body",
+      "model_sources": [],
+      "checks": [
+        {
+          "name": "status",
+          "expected": "failed",
+          "observed": "failed",
+          "passed": true
+        },
+        {
+          "name": "finding one of ['UNUSABLE_INPUT']",
+          "expected": [
+            "UNUSABLE_INPUT"
+          ],
+          "observed": [
+            "UNUSABLE_INPUT"
+          ],
+          "passed": true
+        },
+        {
+          "name": "model not called",
+          "expected": 0,
+          "observed": 0,
+          "passed": true
+        }
+      ],
+      "passed": true
+    }
+  ],
+  "batch": [
+    {
+      "name": "status counts before review",
+      "expected": {
+        "ready_for_review": 5,
+        "needs_clarification": 5,
+        "duplicate": 1,
+        "failed": 1
+      },
+      "observed": {
+        "duplicate": 1,
+        "failed": 1,
+        "needs_clarification": 5,
+        "ready_for_review": 5
+      },
+      "passed": true
+    },
+    {
+      "name": "new orders",
+      "expected": 9,
+      "observed": 9,
+      "passed": true
+    }
+  ],
+  "simulated_failures": [
+    {
+      "name": "R1 simulated model outage -> failed, nothing invented",
+      "expected": "failed MODEL_UNAVAILABLE",
+      "observed": "failed MODEL_UNAVAILABLE: Simulated failure: model unavailable (no ",
+      "passed": true
+    },
+    {
+      "name": "R5 simulated invalid output -> failed after one retry",
+      "expected": "failed INVALID_MODEL_OUTPUT",
+      "observed": "failed INVALID_MODEL_OUTPUT: Model returned invalid submit_order_dr",
+      "passed": true
+    },
+    {
+      "name": "R2 unaffected by other failures",
+      "expected": "needs_clarification",
+      "observed": "needs_clarification",
+      "passed": true
+    }
+  ],
+  "passed": true
+}
