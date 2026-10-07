@@ -25,5 +25,5 @@ The brief's *Submission* section asks for a **Git repository** with the solution
 - [x] `uv run order-intake check` passes **with no API key**.
 - [x] `uv run pytest` and `uv run ruff check .` pass.
 - [x] Commits authored as the submitting candidate.
-- [ ] Fresh clone smoke test: `git clone … && uv sync && uv run order-intake check`.
+- [x] Fresh clone smoke test: `git clone … && uv sync && uv run order-intake check` passes with no key (58 tests pass).
 - [ ] Tag the submitted commit: `git tag submission-v1 && git push --tags`.
