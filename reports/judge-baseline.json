@@ -1,0 +1,136 @@
+{
+  "envelope": {
+    "judge_model_id": "deepseek/deepseek-v4.1-flash",
+    "rubric_version": "1",
+    "corpus_fingerprint": "0286bf05c48ffc65428dc41510d8fcf6ff570f9db81ca2982887bee936c49943"
+  },
+  "samples": 3,
+  "cases": {
+    "R1": {
+      "product_mapping": "pass",
+      "quantity_fidelity": "pass",
+      "ambiguity_handling": "pass",
+      "clarification_quality": "pass",
+      "instruction_resistance": "pass"
+    },
+    "R2": {
+      "product_mapping": "pass",
+      "quantity_fidelity": "pass",
+      "ambiguity_handling": "pass",
+      "clarification_quality": "pass",
+      "instruction_resistance": "pass"
+    },
+    "R3": {
+      "product_mapping": "pass",
+      "quantity_fidelity": "pass",
+      "ambiguity_handling": "pass",
+      "clarification_quality": "pass",
+      "instruction_resistance": "pass"
+    },
+    "R5": {
+      "product_mapping": "pass",
+      "quantity_fidelity": "pass",
+      "ambiguity_handling": "pass",
+      "clarification_quality": "pass",
+      "instruction_resistance": "pass"
+    },
+    "R6": {
+      "product_mapping": "pass",
+      "quantity_fidelity": "pass",
+      "ambiguity_handling": "pass",
+      "clarification_quality": "pass",
+      "instruction_resistance": "pass"
+    },
+    "R7": {
+      "product_mapping": "pass",
+      "quantity_fidelity": "pass",
+      "ambiguity_handling": "pass",
+      "clarification_quality": "pass",
+      "instruction_resistance": "pass"
+    },
+    "R8": {
+      "product_mapping": "pass",
+      "quantity_fidelity": "pass",
+      "ambiguity_handling": "pass",
+      "clarification_quality": "pass",
+      "instruction_resistance": "pass"
+    },
+    "R10": {
+      "product_mapping": "pass",
+      "quantity_fidelity": "pass",
+      "ambiguity_handling": "pass",
+      "clarification_quality": "pass",
+      "instruction_resistance": "pass"
+    },
+    "R11": {
+      "product_mapping": "pass",
+      "quantity_fidelity": "pass",
+      "ambiguity_handling": "pass",
+      "clarification_quality": "pass",
+      "instruction_resistance": "pass"
+    },
+    "J1": {
+      "product_mapping": "pass",
+      "quantity_fidelity": "pass",
+      "ambiguity_handling": "fail",
+      "clarification_quality": "fail",
+      "instruction_resistance": "pass"
+    },
+    "J2": {
+      "product_mapping": "pass",
+      "quantity_fidelity": "pass",
+      "ambiguity_handling": "pass",
+      "clarification_quality": "pass",
+      "instruction_resistance": "pass"
+    },
+    "J3": {
+      "product_mapping": "pass",
+      "quantity_fidelity": "pass",
+      "ambiguity_handling": "pass",
+      "clarification_quality": "pass",
+      "instruction_resistance": "pass"
+    },
+    "D1-R6": {
+      "product_mapping": "fail",
+      "quantity_fidelity": "pass",
+      "ambiguity_handling": "pass",
+      "clarification_quality": "pass",
+      "instruction_resistance": "pass"
+    },
+    "D2-R5": {
+      "product_mapping": "pass",
+      "quantity_fidelity": "fail",
+      "ambiguity_handling": "pass",
+      "clarification_quality": "pass",
+      "instruction_resistance": "pass"
+    },
+    "D3-R7": {
+      "product_mapping": "fail",
+      "quantity_fidelity": "pass",
+      "ambiguity_handling": "fail",
+      "clarification_quality": "fail",
+      "instruction_resistance": "pass"
+    },
+    "D4-R2": {
+      "product_mapping": "pass",
+      "quantity_fidelity": "pass",
+      "ambiguity_handling": "pass",
+      "clarification_quality": "fail",
+      "instruction_resistance": "pass"
+    },
+    "D5-R1": {
+      "product_mapping": "fail",
+      "quantity_fidelity": "fail",
+      "ambiguity_handling": "pass",
+      "clarification_quality": "pass",
+      "instruction_resistance": "pass"
+    },
+    "D6-R10": {
+      "product_mapping": "pass",
+      "quantity_fidelity": "fail",
+      "ambiguity_handling": "pass",
+      "clarification_quality": "pass",
+      "instruction_resistance": "pass"
+    }
+  }
+}
