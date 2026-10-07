@@ -42,6 +42,14 @@ IMPROVEMENTS = {
 }
 
 
+def provider_name(settings: Settings) -> str | None:
+    try:
+        provider = settings.resolve_provider()
+    except ValueError:
+        return None
+    return provider.name if provider else None
+
+
 class App:
     def __init__(self, settings: Settings):
         self.settings = settings
@@ -98,7 +106,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             return templates.TemplateResponse(request, "dashboard.html", {
                 "counts": counts, "total": len(reqs), "orders": a.store.order_count(), "reasons": top,
                 "duplicates": duplicates, "sources": sources, "tokens": tokens, "cost": cost,
-                "improvement": improvement, "settings": a.settings,
+                "improvement": improvement, "settings": a.settings, "provider": provider_name(a.settings),
             })
 
     @app.get("/queue", response_class=HTMLResponse)

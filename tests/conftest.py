@@ -59,7 +59,8 @@ class FakeClient(ChatClient):
 
 @pytest.fixture
 def settings(tmp_path):
-    return replace(load_settings(llm_mode="replay"), db_path=tmp_path / "test.db", replay_dir=tmp_path / "replay")
+    return replace(load_settings(llm_mode="replay"), db_path=tmp_path / "test.db", replay_dir=tmp_path / "replay",
+                   provider="auto", openrouter_api_key=None, openai_api_key=None, openai_model_id=None)
 
 
 @pytest.fixture

@@ -47,7 +47,7 @@
 
     <h3>Model calls</h3>
     <dl class="kv">
-      <dt>Model</dt><dd>{{ settings.model_id }} (mode: {{ settings.llm_mode }})</dd>
+      <dt>Model</dt><dd>{{ settings.model_id }} (mode: {{ settings.llm_mode }}, provider: {{ provider or 'none — replay only' }})</dd>
       <dt>Calls by source</dt><dd>{% for s, n in sources.items() %}<span class="badge src-{{ s }}">{{ s }} {{ n }}</span> {% else %}none{% endfor %}</dd>
       <dt>Tokens (recorded)</dt><dd>{{ tokens }}</dd>
       {% if cost %}<dt>Cost (recorded)</dt><dd>${{ '%.4f'|format(cost) }}</dd>{% endif %}

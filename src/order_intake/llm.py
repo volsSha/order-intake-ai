@@ -1,4 +1,4 @@
-"""Chat-completions client for OpenRouter with record/replay and labelled simulated failures.
+"""Chat-completions client (OpenRouter, or OpenAI directly as a fallback) with record/replay.
 
 Every live call is written to replay/<request_id>/step<NN>-<key>.json. The key hashes the full
 request (model, messages, tools, parameters), so replay returns exactly the response that the
@@ -15,7 +15,7 @@ from pathlib import Path
 
 import openai
 
-from .config import Settings
+from .config import ConfigError, Provider, Settings
 from .storage import now
 
 SIMULATIONS = ("model_unavailable", "invalid_output")
@@ -52,27 +52,45 @@ class ChatClient:
         self.settings = settings
         self.simulate = simulate or {}
         self._client = None
+        self._provider: str | None = None
 
-    def _params(self, messages: list[dict], tools: list[dict]) -> dict:
+    def _canonical(self, messages: list[dict], tools: list[dict]) -> dict:
+        """Provider-independent request description; its hash is the replay key."""
         return {
             "model": self.settings.model_id,
+            "messages": _redact_images(messages),
+            "tools": tools,
+            "tool_choice": "required",
+            "max_completion_tokens": self.settings.max_completion_tokens,
+            "seed": self.settings.seed,
+            "reasoning_effort": self.settings.reasoning_effort,
+        }
+
+    def live_params(self, provider: Provider, messages: list[dict], tools: list[dict]) -> dict:
+        params = {
+            "model": provider.model,
             "messages": messages,
             "tools": tools,
             "tool_choice": "required",
             "max_completion_tokens": self.settings.max_completion_tokens,
             "seed": self.settings.seed,
-            "extra_body": {"reasoning": {"effort": self.settings.reasoning_effort}},
         }
+        if provider.name == "openrouter":
+            params["extra_body"] = {"reasoning": {"effort": self.settings.reasoning_effort}}
+        else:
+            # reasoning_details is an OpenRouter extension the OpenAI API does not accept
+            params["messages"] = [{k: v for k, v in m.items() if k != "reasoning_details"} for m in messages]
+            params["reasoning_effort"] = self.settings.reasoning_effort
+        return params
 
-    def _key_payload(self, params: dict) -> dict:
-        return {**params, "messages": _redact_images(params["messages"])}
+    def _display(self, path: Path) -> str:
+        return str(path.relative_to(self.settings.root)) if path.is_relative_to(self.settings.root) else str(path)
 
     def replay_path(self, request_id: str, step: int, key: str) -> Path:
         return self.settings.replay_dir / request_id / f"step{step:02d}-{key[:16]}.json"
 
     def complete(self, request_id: str, step: int, messages: list[dict], tools: list[dict]) -> LLMResult:
-        params = self._params(messages, tools)
-        payload = self._key_payload(params)
+        payload = self._canonical(messages, tools)
         key = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
         record = {"call_id": f"{request_id}-s{step}-{uuid.uuid4().hex[:8]}", "request_id": request_id,
                   "step": step, "model": self.settings.model_id, "replay_key": key}
@@ -93,22 +111,32 @@ class ChatClient:
         if mode == "replay" or (mode == "auto" and path.exists()):
             if not path.exists():
                 record.update(source="replay", error="no recorded response for this exact request")
-                raise ReplayMissing(f"No recorded response at {path.relative_to(self.settings.root)}; "
+                raise ReplayMissing(f"No recorded response at {self._display(path)}; "
                                     "run with LLM_MODE=live to record one.", record)
             saved = json.loads(path.read_text(encoding="utf-8"))
-            record.update(source="replay", replay_file=str(path.relative_to(self.settings.root)),
-                          latency_ms=saved.get("latency_ms"), usage=saved["response"].get("usage"))
+            record.update(source="replay", replay_file=self._display(path),
+                          provider=saved.get("provider"), latency_ms=saved.get("latency_ms"),
+                          usage=saved["response"].get("usage"))
             return LLMResult(self._message(saved["response"], record), record)
-        return self._live(params, payload, path, record)
+        return self._live(messages, tools, payload, path, record)
 
-    def _live(self, params: dict, payload: dict, path: Path, record: dict) -> LLMResult:
-        if not self.settings.api_key:
-            record.update(source="live", error="OPENROUTER_API_KEY is not set")
-            raise LLMError("OPENROUTER_API_KEY is not set; use LLM_MODE=replay or add a key to .env.", record)
-        if self._client is None:
-            self._client = openai.OpenAI(api_key=self.settings.api_key, base_url=self.settings.base_url,
-                                         timeout=self.settings.timeout_s, max_retries=1,
-                                         default_headers={"X-Title": "order-intake take-home"})
+    def _live(self, messages: list[dict], tools: list[dict], payload: dict, path: Path, record: dict) -> LLMResult:
+        try:
+            provider = self.settings.resolve_provider()
+        except ConfigError as exc:
+            record.update(source="live", error=str(exc))
+            raise LLMError(str(exc), record) from exc
+        if provider is None or not provider.api_key:
+            record.update(source="live", error="no API key")
+            raise LLMError("No API key: set OPENROUTER_API_KEY (or OPENAI_API_KEY as a fallback) in .env, "
+                           "or use LLM_MODE=replay.", record)
+        record["provider"] = provider.name
+        if self._client is None or self._provider != provider.name:
+            headers = {"X-Title": "order-intake take-home"} if provider.name == "openrouter" else None
+            self._client = openai.OpenAI(api_key=provider.api_key, base_url=provider.base_url,
+                                         timeout=self.settings.timeout_s, max_retries=1, default_headers=headers)
+            self._provider = provider.name
+        params = self.live_params(provider, messages, tools)
         started = time.monotonic()
         try:
             response = self._client.chat.completions.create(**params).model_dump(mode="json")
@@ -117,11 +145,12 @@ class ChatClient:
             raise LLMError(f"Model call failed: {type(exc).__name__}: {exc}", record) from exc
         latency = int((time.monotonic() - started) * 1000)
         record.update(source="live", latency_ms=latency, usage=response.get("usage"),
-                      replay_file=str(path.relative_to(self.settings.root)))
+                      replay_file=self._display(path))
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps({
             "replay_key": record["replay_key"], "request_id": record["request_id"], "step": record["step"],
-            "recorded_at": now(), "latency_ms": latency, "request": payload, "response": response,
+            "recorded_at": now(), "provider": provider.name, "provider_model": provider.model,
+            "latency_ms": latency, "request": payload, "response": response,
         }, indent=2), encoding="utf-8")
         return LLMResult(self._message(response, record), record)
 

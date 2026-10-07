@@ -151,9 +151,9 @@
     <h2>Model calls</h2>
     {% if calls %}
     <div class="scroll"><table class="small">
-      <tr><th>Step</th><th>Source</th><th>Model</th><th class="num">ms</th><th class="num">Tokens</th><th>Record</th></tr>
+      <tr><th>Step</th><th>Source</th><th>Model · provider</th><th class="num">ms</th><th class="num">Tokens</th><th>Record</th></tr>
       {% for c in calls %}
-      <tr><td>{{ c.step }}</td><td><span class="badge src-{{ c.source }}">{{ c.source }}</span></td><td>{{ c.model }}</td>
+      <tr><td>{{ c.step }}</td><td><span class="badge src-{{ c.source }}">{{ c.source }}</span></td><td>{{ c.model }}{% if c.provider %} · {{ c.provider }}{% endif %}</td>
         <td class="num">{{ c.latency_ms or '' }}</td><td class="num">{{ (c.usage or {}).get('total_tokens', '') }}</td>
         <td>{{ c.replay_file or '' }}{% if c.error %}<br><span style="color:var(--bad)">{{ c.error }}</span>{% endif %}</td></tr>
       {% endfor %}

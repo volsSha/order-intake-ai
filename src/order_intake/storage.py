@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS llm_calls (
     request_id TEXT NOT NULL,
     step INTEGER NOT NULL,
     model TEXT,
+    provider TEXT,
     source TEXT NOT NULL,
     replay_file TEXT,
     created_at TEXT NOT NULL,
@@ -187,9 +188,10 @@ class Store:
     # model and tool calls -------------------------------------------------
     def add_llm_call(self, record: dict) -> None:
         self.conn.execute(
-            "INSERT OR REPLACE INTO llm_calls (call_id, request_id, step, model, source, replay_file, created_at, "
-            "latency_ms, usage_json, error) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (record["call_id"], record["request_id"], record["step"], record.get("model"), record["source"],
+            "INSERT OR REPLACE INTO llm_calls (call_id, request_id, step, model, provider, source, replay_file, "
+            "created_at, latency_ms, usage_json, error) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (record["call_id"], record["request_id"], record["step"], record.get("model"), record.get("provider"),
+             record["source"],
              record.get("replay_file"), now(), record.get("latency_ms"), json.dumps(record.get("usage")),
              record.get("error")),
         )

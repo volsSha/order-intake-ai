@@ -9,7 +9,7 @@ Chronological record of how the solution was built with AI assistance: what was 
 **Decisions.**
 - Stack: Python 3.12 + FastAPI + Jinja2 + HTMX + SQLite. One language, server-rendered review UI, easy to test with pytest. React/Streamlit/Laravel were considered; rejected for time (React), testability (Streamlit), and AI-ecosystem fit (Laravel).
 - LLM layer: plain `openai` SDK pointed at OpenRouter with a hand-written tool loop. LangGraph/LangChain were considered and rejected: the flow is linear (lookup → submit), and raw request/response capture for replay is simpler without a framework.
-- Model: `openai/gpt-6-luna` via OpenRouter (cheap, supports tools, structured outputs, image input). Configurable with `MODEL_ID`. No key was supplied by the hiring team; the candidate's own OpenRouter key with a spending cap is used.
+- Model: `openai/gpt-6-luna` via OpenRouter (cheap, supports tools, structured outputs, image input). Configurable with `MODEL_ID`. No key was supplied by the hiring team; the candidate's own OpenRouter key with a spending cap is used. OpenAI direct is supported as a fallback (stage 6).
 - Starter files live in `starter/` with SHA-256 checksums so a reviewer can confirm they are unmodified.
 
 **AI configuration introduced.** Project `CLAUDE.md` (agent instructions for Claude Code).
@@ -69,3 +69,13 @@ Chronological record of how the solution was built with AI assistance: what was 
 **What it does.** Processes all 12 requests; evaluates every reference case (status, priced lines, totals, required findings, no guessed SKU/quantity, clarification saved, duplicate/conflict links, no new orders); reprocesses the whole batch and checks that orders and model calls do not grow; applies the REF-5 reviewer correction, closes the database, reopens it (restart) and checks status, lines, total and version history; runs labelled simulated failures (model outage, invalid output) on a separate database. Exit code is non-zero on any failure, so it can gate CI.
 
 **Checks.** `test_check_runner_passes_with_a_well_behaved_model` runs the same runner with the scripted fake model to prove the runner itself works before any real call.
+
+## Stage 6 — OpenAI fallback provider (2026-10-07)
+
+**Request.** Use OpenAI directly when no OpenRouter key is configured.
+
+**Design.** `Settings.resolve_provider()`: `LLM_PROVIDER=auto` picks OpenRouter if `OPENROUTER_API_KEY` is set, else OpenAI if `OPENAI_API_KEY` is set, else none (replay only). The OpenAI model name defaults to `MODEL_ID` without the `openai/` prefix (`OPENAI_MODEL_ID` overrides; a non-OpenAI `MODEL_ID` without an override is a configuration error, not a silent model swap). Provider differences are isolated in `ChatClient.live_params`: OpenRouter gets `extra_body.reasoning.effort` and an `X-Title` header; OpenAI gets `reasoning_effort` and has the OpenRouter-only `reasoning_details` stripped from history. The replay key is computed from a provider-independent description of the request, so recordings replay regardless of which provider produced them; the provider is stored in every replay file and model-call row and shown in the UI.
+
+**Checks.** 8 tests in `tests/test_llm.py`: provider precedence, fallback model mapping, config error for a non-OpenAI model, provider-specific parameters, provider-independent replay key, clear error without any key, replay hit and miss on changed input.
+
+**Correction.** The replay test failed with `ValueError: ... is not in the subpath of ...`: replay paths were displayed with `relative_to(ROOT)`, which crashes when `replay_dir` is configured outside the repository (as in tests). Real bug, fixed with a display helper.
