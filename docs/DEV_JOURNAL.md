@@ -36,3 +36,18 @@ Chronological record of how the solution was built with AI assistance: what was 
 **Checks.** 28 unit tests (`tests/test_core.py`) including the domain worked example, half-up rounding with synthetic prices, and one test per finding code.
 
 **Correction.** The first catalog search treated "CAB-1 cables" as a description search, so CAB-1 and CAB-2 tied on the word "cable" — an explicit SKU would have been reported as ambiguous. Found by reading the generated search code against the seed wording before running anything; fixed by detecting SKU-shaped words inside the phrase before description matching, and locked with `test_search_by_sku_inside_phrase`.
+
+## Stage 3 — Model integration and pipeline (2026-10-07)
+
+**Goal.** Real model call inside the app, bounded and replayable; batch pipeline; reviewer actions.
+
+**Design.**
+- `prompts/extract_order.md` holds the system prompt (versioned in Git). Request text is wrapped in `<request>` and declared to be data, not instructions.
+- Two tools only: `search_catalog` (the only product source) and `submit_order_draft` (strict JSON schema generated from Pydantic). `tool_choice=required`, at most 6 model calls, one retry after invalid arguments, then `failed / INVALID_MODEL_OUTPUT`.
+- `llm.py` records every live call to `replay/<request>/stepNN-<sha256 prefix>.json`. The key hashes model + messages + tools + parameters, so replay can never return a response produced for a different prompt or input: a changed prompt is a visible `REPLAY_MISSING`, not a silently stale answer.
+- Simulated failures (`--simulate R1=model_unavailable`, `invalid_output`) are labelled `source=simulated` in the database and UI.
+- Duplicates and conflicting order references are resolved in code before any model call, so they cost nothing and cannot be "talked into" a new order.
+
+**Checks.** 11 pipeline tests with a scripted fake model (`tests/conftest.py`): full batch statuses and order count vs `data/reference/expected.json`, idempotent reprocessing (no new model calls, no new orders), model-unavailable then retry, invalid output after a bounded retry, a model that picks a SKU contradicting the wording, reviewer correction persisted across a reopened database, approval rules.
+
+**Correction.** The first replay run without recordings reported `MODEL_UNAVAILABLE`, which would mislead a reviewer into thinking the API was down. Added a separate `REPLAY_MISSING` code.

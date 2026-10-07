@@ -32,6 +32,8 @@ FINDING_LABELS = {
     "DUPLICATE_REQUEST": "Duplicate of an earlier request",
     "UNUSABLE_INPUT": "Unusable input",
     "MODEL_UNAVAILABLE": "Model unavailable",
+    "REPLAY_MISSING": "No recorded model response to replay",
+    "PROCESSING_ERROR": "Unexpected processing error",
     "INVALID_MODEL_OUTPUT": "Invalid model output",
     "STEP_LIMIT": "Model did not finish within the step limit",
 }
