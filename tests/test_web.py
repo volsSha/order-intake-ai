@@ -60,3 +60,11 @@ def test_attachment_route_blocks_path_traversal(settings, make_pipeline):
     with client_for(settings, make_pipeline, only={"R11"}) as c:
         assert c.get("/attachments/R11-order-form.png").status_code == 200
         assert c.get("/attachments/..%2F..%2Fcatalog.json").status_code == 404
+
+
+def test_rejected_action_shows_full_error_message(settings, make_pipeline):
+    with client_for(settings, make_pipeline, only={"R2"}) as c:
+        r = c.post("/requests/R2/approve", data={"reviewer": "ana"}, follow_redirects=False)
+        assert "%20" in r.headers["location"]
+        html = c.get(r.headers["location"]).text
+    assert "Only a draft that passed validation (ready_for_review) can be approved." in html

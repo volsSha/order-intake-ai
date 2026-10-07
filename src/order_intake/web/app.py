@@ -7,8 +7,10 @@ import threading
 from collections import Counter
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -155,12 +157,17 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             lines.append({"sku": sku or None, "quantity": qty, "product_text": form.get(f"text_{idx}") or "",
                           "quantity_text": qty_raw})
         a = ctx()
-        with a.lock:
-            try:
+
+        def save():
+            with a.lock:
                 a.pipeline.correct(request_id, lines, note=str(form.get("note") or ""),
                                    reviewer=str(form.get("reviewer") or "reviewer"))
-            except ReviewError as exc:
-                return RedirectResponse(f"/requests/{request_id}?error={exc}", status_code=303)
+
+        # Sync DB work and the shared lock must not block the event loop.
+        try:
+            await run_in_threadpool(save)
+        except ReviewError as exc:
+            return RedirectResponse(f"/requests/{request_id}?error={quote(str(exc))}", status_code=303)
         return RedirectResponse(f"/requests/{request_id}#current", status_code=303)
 
     @app.post("/requests/{request_id}/approve")
@@ -170,7 +177,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             try:
                 a.pipeline.approve(request_id, note=note, reviewer=reviewer or "reviewer")
             except ReviewError as exc:
-                return RedirectResponse(f"/requests/{request_id}?error={exc}", status_code=303)
+                return RedirectResponse(f"/requests/{request_id}?error={quote(str(exc))}", status_code=303)
         return RedirectResponse(f"/requests/{request_id}", status_code=303)
 
     @app.post("/process")
