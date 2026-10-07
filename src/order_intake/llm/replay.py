@@ -112,7 +112,8 @@ class ReplayModel(WrapperModel):
     """One instance per run: it numbers the steps and writes one llm_calls row per model request."""
 
     def __init__(self, live: LiveModel, settings: Settings, store: Store, request_id: str, *,
-                 namespace: str = "extract", simulate: str | None = None, replay_files: list[Path] | None = None):
+                 namespace: str = "extract", simulate: str | None = None, replay_files: list[Path] | None = None,
+                 key_extras: dict | None = None):
         super().__init__(live.model)
         self.live = live
         self.config = settings
@@ -123,6 +124,7 @@ class ReplayModel(WrapperModel):
         self.step = 0
         self.call_ids: list[str] = []
         self.replay_files = replay_files if replay_files is not None else []
+        self.key_extras = key_extras or {}  # judge: its own model id and settings, rubric version, sample index
 
     def replay_path(self, step: int, key: str) -> Path:
         return self.config.replay_dir / self.namespace / self.request_id / f"step{step:02d}-{key[:16]}.json"
@@ -136,7 +138,7 @@ class ReplayModel(WrapperModel):
         self.step += 1
         step = self.step
         record = {"call_id": f"{self.request_id}-s{step}-{uuid.uuid4().hex[:8]}", "request_id": self.request_id,
-                  "step": step, "model": self.config.model_id}
+                  "step": step, "model": self.key_extras.get("model", self.config.model_id)}
 
         if self.simulate == "model_unavailable":
             self._log({**record, "source": "simulated", "error": "simulated: model unavailable"})
@@ -146,7 +148,7 @@ class ReplayModel(WrapperModel):
             name = model_request_parameters.output_tools[0].name
             return ModelResponse(parts=[ToolCallPart(name, '{"lines": "not-a-list"')], model_name="simulated")
 
-        payload = canonical_request(messages, model_request_parameters, self.config)
+        payload = {**canonical_request(messages, model_request_parameters, self.config), **self.key_extras}
         key = replay_key(payload)
         path = self.replay_path(step, key)
         shown = display_path(path, self.config.root)
@@ -161,8 +163,8 @@ class ReplayModel(WrapperModel):
         if mode == "replay":
             self._log({**record, "source": "replay", "replay_file": shown,
                        "error": f"no recorded response for key {key}"})
-            raise ReplayMissing(f"No recorded response at {shown} (key {key}); run with LLM_MODE=live to "
-                                "record one.")
+            raise ReplayMissing(f"No recorded response at {shown} (key {key}); record one with a live run "
+                                "(--mode live).")
         if self.live.provider is None:
             self._log({**record, "source": "live", "error": self.live.problem})
             prefix = "No recorded response for this request and no live model: " if mode == "auto" else ""

@@ -8,8 +8,10 @@ into the expectations.
 import json
 import shutil
 import tempfile
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
+
+from pydantic_evals.evaluators import EvaluationReason, Evaluator, EvaluatorContext
 
 from ..config import Settings
 from ..llm.replay import ModelFactory
@@ -17,12 +19,9 @@ from ..pipeline import Pipeline
 from ..storage import Store, now
 
 
-def _codes(store: Store, request_id: str) -> set[str]:
-    req = store.get_request(request_id) or {}
-    codes = set()
+def codes_of(req: dict, proposal: dict | None) -> set[str]:
     reason = req.get("status_reason") or ""
-    codes |= {c.strip() for c in reason.split(":")[0].split(",") if c.strip()}
-    proposal = store.latest_proposal(request_id)
+    codes = {c.strip() for c in reason.split(":")[0].split(",") if c.strip()}
     if proposal:
         codes |= {f["code"] for f in proposal["result"]["findings"] if f["severity"] == "blocking"}
     return codes
@@ -39,24 +38,29 @@ def _expected_lines(lines: list[dict]) -> list[dict]:
     return sorted(lines, key=lambda x: x["sku"])
 
 
-def evaluate_case(case: dict, store: Store, pipeline: Pipeline, settings: Settings) -> dict:
-    exp = case["expected"]
-    rid = case["request_id"]
-    req = store.get_request(rid) or {}
+def observe(store: Store, request_id: str) -> dict:
+    """What the reference comparison reads for one request; a plain snapshot that can be copied and mutated."""
+    req = store.get_request(request_id) or {}
+    return {"request": req, "proposal": store.latest_proposal(request_id),
+            "llm_calls": len(store.llm_calls(request_id)), "order_owner": store.order_owner(req.get("order_ref") or "")}
+
+
+def compare(exp: dict, request_id: str, observed: dict) -> list[tuple[str, object, object, bool]]:
+    """Every reference check that only reads the observed state."""
+    req, proposal = observed["request"], observed["proposal"]
+    codes = codes_of(req, proposal)
     checks: list[tuple[str, object, object, bool]] = []
 
-    def check(name, expected, observed, ok=None):
-        checks.append((name, expected, observed, expected == observed if ok is None else ok))
+    def check(name, expected, value, ok=None):
+        checks.append((name, expected, value, expected == value if ok is None else ok))
 
     if "status" in exp:
         check("status", exp["status"], req.get("status"))
     if "lines" in exp:
-        check("lines", _expected_lines(exp["lines"]), _lines(store.latest_proposal(rid)))
-        check("order_total_cents", exp["order_total_cents"], (store.latest_proposal(rid) or {}).get("order_total_cents"))
+        check("lines", _expected_lines(exp["lines"]), _lines(proposal))
+        check("order_total_cents", exp["order_total_cents"], (proposal or {}).get("order_total_cents"))
     for group in exp.get("findings_any_of", []):
-        observed = _codes(store, rid)
-        check(f"finding one of {group}", group, sorted(observed), ok=bool(observed & set(group)))
-    proposal = store.latest_proposal(rid)
+        check(f"finding one of {group}", group, sorted(codes), ok=bool(codes & set(group)))
     if exp.get("no_sku_assigned"):
         skus = [line["sku"] for line in (proposal or {}).get("result", {}).get("lines", [])]
         check("no SKU assigned", [], [s for s in skus if s], ok=not any(skus))
@@ -71,10 +75,43 @@ def evaluate_case(case: dict, store: Store, pipeline: Pipeline, settings: Settin
     if "conflicts_with" in exp:
         check("conflicts_with", exp["conflicts_with"], req.get("related_request_id"))
     if exp.get("new_orders_created") == 0:
-        owner = store.order_owner(req.get("order_ref") or "")
-        check("no new order for this request", "owner is another request", owner, ok=owner != rid)
+        owner = observed["order_owner"]
+        check("no new order for this request", "owner is another request", owner, ok=owner != request_id)
     if exp.get("llm_called") is False:
-        check("model not called", 0, len(store.llm_calls(rid)))
+        check("model not called", 0, observed["llm_calls"])
+    if "status_before" in exp:
+        check("status before correction", exp["status_before"], req.get("status"))
+        for group in exp.get("findings_before_any_of", []):
+            check(f"finding before one of {group}", group, sorted(codes), ok=bool(codes & set(group)))
+    return checks
+
+
+def reference_verdict(exp: dict, observed: dict) -> tuple[str, list[str]]:
+    failed = [name for name, *_, ok in compare(exp, observed["request"].get("request_id"), observed) if not ok]
+    return ("fail" if failed else "pass"), failed
+
+
+@dataclass(repr=False)
+class ReferenceEvaluator(Evaluator):
+    """pydantic-evals adapter over compare(); the case output carries an observe() snapshot."""
+
+    def evaluate(self, ctx: EvaluatorContext) -> dict:
+        if ctx.expected_output is None:
+            return {"reference": EvaluationReason("n/a", "no reference case")}
+        if getattr(ctx.output, "pipeline_unavailable", False):
+            return {"reference": EvaluationReason("n/a", "pipeline unavailable")}
+        verdict, failed = reference_verdict(ctx.expected_output, ctx.output.observed)
+        return {"reference": EvaluationReason(verdict, "; ".join(failed) or "all checks pass")}
+
+
+def evaluate_case(case: dict, store: Store, pipeline: Pipeline, settings: Settings) -> dict:
+    exp = case["expected"]
+    rid = case["request_id"]
+    checks = compare(exp, rid, observe(store, rid))
+
+    def check(name, expected, observed, ok=None):
+        checks.append((name, expected, observed, expected == observed if ok is None else ok))
+
     if exp.get("reprocess_all_twice_changes_order_count") is False:
         orders, calls = store.order_count(), store.conn.execute("SELECT COUNT(*) FROM llm_calls").fetchone()[0]
         pipeline.process_all()
@@ -82,10 +119,6 @@ def evaluate_case(case: dict, store: Store, pipeline: Pipeline, settings: Settin
         check("model calls after reprocessing all", calls,
               store.conn.execute("SELECT COUNT(*) FROM llm_calls").fetchone()[0])
     if "status_before" in exp:
-        check("status before correction", exp["status_before"], req.get("status"))
-        for group in exp.get("findings_before_any_of", []):
-            observed = _codes(store, rid)
-            check(f"finding before one of {group}", group, sorted(observed), ok=bool(observed & set(group)))
         corr = exp["correction"]
         current = store.latest_proposal(rid)
         lines = [{"sku": line["sku"], "quantity": line["quantity"], "product_text": line["product_text"]}

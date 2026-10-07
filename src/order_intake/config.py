@@ -37,6 +37,8 @@ class Settings:
     requests_dir: Path = ROOT / "data" / "requests"
     catalog_path: Path = ROOT / "data" / "catalog.json"
     prompt_path: Path = ROOT / "prompts" / "extract_order.md"
+    judge_prompt_path: Path = ROOT / "prompts" / "judge.md"
+    judge_cases_dir: Path = ROOT / "data" / "judge-cases"
     replay_dir: Path = ROOT / "replay"
     db_path: Path = ROOT / "var" / "intake.db"
     model_id: str = "openai/gpt-6-luna"
@@ -52,6 +54,10 @@ class Settings:
     seed: int = 7
     max_steps: int = 6
     timeout_s: float = 60.0
+    judge_model_id: str = "deepseek/deepseek-v4.1-flash"
+    judge_seed: int = 7
+    judge_max_tokens: int = 2000
+    judge_temperature: float = 0.2
 
     def resolve_provider(self) -> Provider | None:
         """OpenRouter when its key is set, otherwise OpenAI directly; None when no key is available."""
@@ -71,10 +77,22 @@ class Settings:
         return Provider("openai", self.openai_base_url, self.openai_api_key, model)
 
 
+def model_family(model_id: str) -> str:
+    """The vendor prefix of a model id: 'openai' for 'openai/gpt-6-luna'."""
+    return model_id.split("/", 1)[0].strip().lower()
+
+
+def check_judge_model(settings: Settings) -> None:
+    if model_family(settings.judge_model_id) == model_family(settings.model_id):
+        raise ConfigError(f"JUDGE_MODEL_ID {settings.judge_model_id!r} is from the same family as MODEL_ID "
+                          f"{settings.model_id!r}; the judge must come from another vendor.")
+
+
 def load_settings(**overrides) -> Settings:
     load_dotenv(ROOT / ".env")
     env = {
         "model_id": os.getenv("MODEL_ID"),
+        "judge_model_id": os.getenv("JUDGE_MODEL_ID"),
         "llm_mode": os.getenv("LLM_MODE"),
         "provider": os.getenv("LLM_PROVIDER"),
         "openrouter_api_key": os.getenv("OPENROUTER_API_KEY") or None,

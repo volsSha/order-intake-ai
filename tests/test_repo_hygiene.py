@@ -10,6 +10,7 @@ from dotenv import dotenv_values
 
 from order_intake.config import ROOT, load_settings
 from order_intake.evals.check import run_checks
+from order_intake.evals.judge import JudgeModels, run_judge
 from order_intake.llm.replay import ModelFactory
 
 REPLAY_KEYS = {"format_version", "replay_key", "request_id", "step", "recorded_at", "provider", "provider_model",
@@ -152,18 +153,30 @@ def test_modified_starter_file_fails_checksum(tmp_path: Path):
     assert checksum_mismatches(tmp_path / "SHA256SUMS") == ["tasks/orders/a.md"]
 
 
-@pytest.mark.integration
-def test_every_extract_recording_is_read_by_a_full_replay_run(tmp_path):
+@pytest.fixture(scope="module")
+def offline_run(tmp_path_factory) -> set[Path]:
+    """Replay files read by a full offline check plus a full offline judge run."""
     factories: list[ModelFactory] = []
 
-    def tracking_factory(**kwargs):
-        factories.append(ModelFactory(**kwargs))
-        return factories[-1]
+    def tracking(cls):
+        def make(**kwargs):
+            factories.append(cls(**kwargs))
+            return factories[-1]
+        return make
 
-    settings = replace(load_settings(llm_mode="replay"), db_path=tmp_path / "x.db", openrouter_api_key=None,
+    tmp = tmp_path_factory.mktemp("offline")
+    settings = replace(load_settings(llm_mode="replay"), db_path=tmp / "x.db", openrouter_api_key=None,
                        openai_api_key=None)
-    assert run_checks(settings, tmp_path, model_factory=tracking_factory)["passed"]
-    read = {f.resolve() for factory in factories for f in factory.replay_files}
-    recorded = {f.resolve() for f in (ROOT / "replay" / "extract").rglob("*.json")}
-    orphans = sorted(str(f.relative_to(ROOT)) for f in recorded - read)
+    assert run_checks(settings, tmp, model_factory=tracking(ModelFactory))["passed"]
+    run_judge(settings, tmp / "judge", pipeline_factory=tracking(ModelFactory), judge_models=tracking(JudgeModels))
+    return {f.resolve() for factory in factories for f in factory.replay_files}
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("namespace", ["extract", "judge"])
+def test_every_recording_is_read_by_a_full_offline_run(offline_run, namespace):
+    recorded = {f.resolve() for f in (ROOT / "replay" / namespace).rglob("*.json")}
+    if namespace == "judge" and not recorded:
+        pytest.skip("replay/judge/ has no recordings yet")
+    orphans = sorted(str(f.relative_to(ROOT)) for f in recorded - offline_run)
     assert not orphans, f"replay files no run reads: {orphans}"

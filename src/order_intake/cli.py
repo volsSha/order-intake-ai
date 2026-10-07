@@ -63,6 +63,28 @@ def cmd_check(args) -> int:
     return 0 if report["passed"] else 1
 
 
+def cmd_judge(args) -> int:
+    from pathlib import Path
+
+    from .evals.judge import run_judge
+
+    settings = load_settings()
+    out = Path(args.out) if args.out else settings.root / "reports"
+    results = run_judge(settings, out, judge_mode=args.mode, pipeline_mode=args.pipeline_mode,
+                        samples=args.samples, update_baseline=args.update_baseline)
+    for r in results["cases"]:
+        print(f"  {r['case_id']:<7} {r['kind']:<10} trajectory={r['trajectory']['verdict']:<5} "
+              f"reference={r['reference']['verdict']:<5} judge={r['judge_only']:<20} overall={r['overall']}")
+    cal = results["calibration"]
+    print(f"judge-only detection {cal['detection']['count']}/{cal['detection']['n']}, false fail "
+          f"{cal['false_fail']['count']}/{cal['false_fail']['n']}, excluded {cal['excluded']['count']}")
+    print(f"baseline: {results['baseline']['message']}")
+    if results["missing_recordings"]:
+        print(f"missing recordings: {', '.join(results['missing_recordings'])}")
+    print(f"exit {results['exit_code']} -> {out / 'judge-report.md'}")
+    return results["exit_code"]
+
+
 def cmd_serve(args) -> int:
     import os
 
@@ -101,6 +123,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--mode", choices=["live", "replay", "auto"], help="LLM mode (default LLM_MODE or replay)")
     p.add_argument("--model", help="override MODEL_ID")
     p.set_defaults(func=cmd_check)
+
+    p = sub.add_parser("judge", help="run the offline LLM-judge evaluation on a fresh temporary database")
+    p.add_argument("--mode", choices=["replay", "live", "auto"], default="replay", help="judge LLM mode")
+    p.add_argument("--pipeline-mode", choices=["replay", "live"], default="replay",
+                   help="pipeline LLM mode; live re-records into a scratch replay directory (drift run)")
+    p.add_argument("--samples", type=int, default=3, help="judge samples per case (default 3)")
+    p.add_argument("--update-baseline", action="store_true", help="write judge-baseline.json from this run")
+    p.add_argument("--out", help="report directory (default reports)")
+    p.set_defaults(func=cmd_judge)
 
     p = sub.add_parser("serve", help="run the review web app")
     common(p)

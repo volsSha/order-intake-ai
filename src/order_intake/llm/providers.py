@@ -15,6 +15,7 @@ APP_TITLE = "order-intake take-home"
 PLACEHOLDER_KEY = "replay-only-no-key"
 NO_KEY = ("No API key: set OPENROUTER_API_KEY (or OPENAI_API_KEY as a fallback) in .env, "
           "or use LLM_MODE=replay.")
+NO_JUDGE_KEY = "The live judge needs OPENROUTER_API_KEY; without it the judge is replay-only."
 
 
 @dataclass
@@ -36,10 +37,11 @@ def _client(settings: Settings, base_url: str, api_key: str, headers: dict | Non
                        default_headers=headers)
 
 
-def _openrouter(settings: Settings, api_key: str) -> Model:
+def _openrouter(settings: Settings, api_key: str, model_id: str | None = None,
+                model_config: OpenRouterModelSettings | None = None) -> Model:
     client = _client(settings, settings.openrouter_base_url, api_key, {"X-Title": APP_TITLE})
-    return OpenRouterModel(settings.model_id, provider=OpenRouterProvider(openai_client=client),
-                           settings=model_settings(settings, "openrouter"))
+    return OpenRouterModel(model_id or settings.model_id, provider=OpenRouterProvider(openai_client=client),
+                           settings=model_config or model_settings(settings, "openrouter"))
 
 
 def _openai(settings: Settings, provider: Provider) -> Model:
@@ -58,3 +60,15 @@ def build_model(settings: Settings) -> LiveModel:
     if provider.name == "openrouter":
         return LiveModel(_openrouter(settings, provider.api_key), "openrouter")
     return LiveModel(_openai(settings, provider), "openai")
+
+
+def judge_model_settings(settings: Settings) -> OpenRouterModelSettings:
+    return OpenRouterModelSettings(seed=settings.judge_seed, max_tokens=settings.judge_max_tokens,
+                                   temperature=settings.judge_temperature, timeout=settings.timeout_s)
+
+
+def build_judge_model(settings: Settings) -> LiveModel:
+    """OpenRouter only: an OpenAI-hosted judge would share the pipeline's model family."""
+    key = settings.openrouter_api_key
+    model = _openrouter(settings, key or PLACEHOLDER_KEY, settings.judge_model_id, judge_model_settings(settings))
+    return LiveModel(model, "openrouter", None) if key else LiveModel(model, None, NO_JUDGE_KEY)

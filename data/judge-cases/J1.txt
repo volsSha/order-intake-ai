@@ -1,0 +1,11 @@
+Request-ID: J1
+Order-Ref: JO1
+From: office@willow-print.example
+Subject: Cables
+
+Hi,
+
+Could we get a dozen of the two-metre USB-C cables?
+
+Thanks,
+Willow Print

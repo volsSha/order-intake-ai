@@ -1,0 +1,6 @@
+Request-ID: J2
+Order-Ref: JO2
+From: it@cedar-clinic.example
+Subject: Order JO2
+
+Please send 4 hubs and one 1 m USB-C cable.
