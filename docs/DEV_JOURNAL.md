@@ -61,3 +61,11 @@ Chronological record of how the solution was built with AI assistance: what was 
 **Checks.** 6 web tests (`tests/test_web.py`): filter returns only matching rows as a partial, detail shows request, totals and lookups, full correction → approve → export flow through HTTP forms, invalid correction stays visible as `needs_clarification`, attachment route blocks path traversal.
 
 **Correction.** The first filter test asserted that "R1" must not appear in the duplicate-only rows, but the duplicate row correctly links to the request it repeats (R1). The test was wrong, not the app; changed it to count rows.
+
+## Stage 5 — Automated minimum-demonstration report (2026-10-07)
+
+**Goal.** One command that rebuilds everything on a fresh temporary database and compares observed behaviour with the independent expectations: `uv run order-intake check` → `reports/minimum-demonstration.md` + `reports/check-results.json`.
+
+**What it does.** Processes all 12 requests; evaluates every reference case (status, priced lines, totals, required findings, no guessed SKU/quantity, clarification saved, duplicate/conflict links, no new orders); reprocesses the whole batch and checks that orders and model calls do not grow; applies the REF-5 reviewer correction, closes the database, reopens it (restart) and checks status, lines, total and version history; runs labelled simulated failures (model outage, invalid output) on a separate database. Exit code is non-zero on any failure, so it can gate CI.
+
+**Checks.** `test_check_runner_passes_with_a_well_behaved_model` runs the same runner with the scripted fake model to prove the runner itself works before any real call.

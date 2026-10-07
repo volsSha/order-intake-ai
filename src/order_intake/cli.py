@@ -47,6 +47,22 @@ def cmd_status(args) -> int:
     return 0
 
 
+def cmd_check(args) -> int:
+    from .evaluation import run_checks
+
+    settings = load_settings(llm_mode=args.mode, model_id=args.model)
+    report = run_checks(settings, settings.root / "reports")
+    for r in report["cases"]:
+        print(f"  {r['case_id']:<7} {r['request_id']:<4} {'PASS' if r['passed'] else 'FAIL'}  {r['title']}")
+        for c in r["checks"]:
+            if not c["passed"]:
+                print(f"           x {c['name']}: expected {c['expected']!r}, observed {c['observed']!r}")
+    for c in report["batch"] + report["simulated_failures"]:
+        print(f"  {'PASS' if c['passed'] else 'FAIL'}  {c['name']}  (observed {c['observed']!r})")
+    print(f"overall: {'PASS' if report['passed'] else 'FAIL'} -> reports/minimum-demonstration.md")
+    return 0 if report["passed"] else 1
+
+
 def cmd_serve(args) -> int:
     import os
 
@@ -80,6 +96,11 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("status", help="print status counts")
     common(p)
     p.set_defaults(func=cmd_status)
+
+    p = sub.add_parser("check", help="run the minimum-demonstration checks on a fresh temporary database")
+    p.add_argument("--mode", choices=["live", "replay", "auto"], help="LLM mode (default LLM_MODE or replay)")
+    p.add_argument("--model", help="override MODEL_ID")
+    p.set_defaults(func=cmd_check)
 
     p = sub.add_parser("serve", help="run the review web app")
     common(p)

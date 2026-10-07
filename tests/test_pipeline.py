@@ -126,3 +126,14 @@ def test_duplicate_request_cannot_be_corrected(make_pipeline):
     p = make_pipeline()
     p.process_all(only={"R1", "R4"})
     assert not p.can_edit("R4")
+
+
+def test_check_runner_passes_with_a_well_behaved_model(settings, tmp_path):
+    from order_intake.evaluation import run_checks
+    from tests.conftest import FakeClient
+
+    report = run_checks(settings, tmp_path / "reports", client_factory=FakeClient)
+    failed = [(r["case_id"], c) for r in report["cases"] for c in r["checks"] if not c["passed"]]
+    assert failed == []
+    assert report["passed"], [c for c in report["batch"] + report["simulated_failures"] if not c["passed"]]
+    assert (tmp_path / "reports" / "minimum-demonstration.md").read_text().count("PASS") > 12
