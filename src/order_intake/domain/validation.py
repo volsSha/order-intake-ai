@@ -45,6 +45,10 @@ NUMBER_WORDS = {
     "ten": 10, "eleven": 11, "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15, "sixteen": 16,
     "seventeen": 17, "eighteen": 18, "nineteen": 19, "twenty": 20,
 }
+TENS_WORDS = {"twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80,
+              "ninety": 90}
+COMPOUND_NUMBER = re.compile(rf"\b({'|'.join(TENS_WORDS)})[- ]({'|'.join(list(NUMBER_WORDS)[:9])})\b")
+CONTAINER_WORDS = re.compile(r"\b(box(es)?|packs?|cases?|cartons?|crates?|pallets?)\b")
 
 
 def finding(code: str, message: str, line: int | None = None, severity: str = BLOCKING, source: str = "code"):
@@ -56,8 +60,11 @@ def _squash(text: str) -> str:
 
 
 def numbers_in(text: str) -> set[int]:
-    found = {int(n) for n in re.findall(r"\d+", text)}
-    found |= {NUMBER_WORDS[w] for w in re.findall(r"[a-z]+", text.lower()) if w in NUMBER_WORDS}
+    lowered = text.lower()
+    found = {int(n) for n in re.findall(r"\d+", lowered)}
+    found |= {TENS_WORDS[t] + NUMBER_WORDS[u] for t, u in COMPOUND_NUMBER.findall(lowered)}
+    words = {**NUMBER_WORDS, **TENS_WORDS}
+    found |= {words[w] for w in re.findall(r"[a-z]+", COMPOUND_NUMBER.sub(" ", lowered)) if w in words}
     return found
 
 
@@ -123,10 +130,11 @@ def validate_lines(
 
         qty = line.get("quantity")
         qty_text = line.get("quantity_text") or ""
-        if author == "model" and line.get("unit") == "container":
+        labelled_container = line.get("unit") == "container"
+        if author == "model" and (labelled_container or CONTAINER_WORDS.search(qty_text.lower())):
             findings.append(finding("NON_ITEM_UNIT",
                                     f"'{qty_text}' is not a count of individual items; box sizes are unknown.", i,
-                                    source="model"))
+                                    source="model" if labelled_container else "code"))
         elif author == "model" and (line.get("quantity_status") != "explicit" or line.get("unit") == "unclear"):
             findings.append(finding("AMBIGUOUS_QUANTITY", f"'{qty_text or 'no amount'}' is not an exact item count.",
                                     i, source="model"))

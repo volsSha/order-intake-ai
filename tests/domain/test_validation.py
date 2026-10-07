@@ -127,7 +127,6 @@ def test_number_word_that_disagrees_with_quantity_is_blocked(word, quantity):
     assert codes(result) == {"QUANTITY_NOT_IN_SOURCE"}
 
 
-@pytest.mark.xfail(strict=True, reason="known gap: 'twenty-one' reads as {20, 1}, so quantity 1 passes")
 def test_compound_number_word_does_not_accept_a_part():
     result = validate_model(model_line(quantity_text="twenty-one", quantity=1), "Send twenty-one CAB-1 cables.")
     assert "QUANTITY_NOT_IN_SOURCE" in codes(result)
@@ -142,10 +141,16 @@ def test_container_quantity_is_not_priced(qty_text):
     assert result["order_total_cents"] is None
 
 
-@pytest.mark.xfail(strict=True, reason="known gap: code trusts the model's unit label for container words")
 def test_container_words_labelled_as_items_are_still_blocked():
     result = validate_model(model_line(quantity_text="2 boxes", quantity=2), "Send 2 boxes of CAB-1 cables.")
     assert result["status"] == NEEDS_CLARIFICATION
+    assert [(f["code"], f["source"]) for f in result["findings"]] == [("NON_ITEM_UNIT", "code")]
+    assert result["order_total_cents"] is None
+
+
+def test_compound_number_word_matches_its_full_value():
+    result = validate_model(model_line(quantity_text="twenty-one", quantity=21), "Send twenty-one CAB-1 cables.")
+    assert result["status"] == READY and result["lines"][0]["quantity"] == 21
 
 
 @pytest.mark.parametrize("qty_text", ["a few", "some", "several", "enough"])
