@@ -1,0 +1,198 @@
+{
+  "description": "Expected behaviour written by hand from starter/orders/domain.md and data/catalog.json, before running the application. Verified independently by scripts/verify_reference.py. Never generated from application output.",
+  "seed_expectations_source": "starter/orders/expected-seed-results.json (R1-R4 unchanged)",
+  "statuses": {
+    "ready_for_review": "Structurally valid draft; not yet reviewed by a person.",
+    "needs_clarification": "At least one blocking finding; a clarification draft is saved.",
+    "duplicate": "Same order reference and identical content as an earlier request; no new draft.",
+    "failed": "Unusable input or model/processing failure; nothing invented.",
+    "approved": "A person reviewed the draft and approved it."
+  },
+  "cases": [
+    {
+      "case_id": "REF-1",
+      "minimum_demonstration": true,
+      "title": "Normal request becomes the expected draft order",
+      "request_id": "R1",
+      "rule": "domain.md rules 1-3",
+      "calculation": "CAB-1 unit 2000 x 2 = 4000; quantity 2 < 10 so no discount; total 4000",
+      "expected": {
+        "status": "ready_for_review",
+        "lines": [
+          {"sku": "CAB-1", "quantity": 2, "unit_cents": 2000, "subtotal_cents": 4000, "discount_cents": 0, "total_cents": 4000}
+        ],
+        "order_total_cents": 4000
+      }
+    },
+    {
+      "case_id": "REF-2",
+      "minimum_demonstration": true,
+      "title": "Unknown product stays unresolved with a clarification draft",
+      "request_id": "R2",
+      "rule": "domain.md rule 3",
+      "calculation": "'Moon adapter' matches no SKU or catalog description; no price can be computed",
+      "expected": {
+        "status": "needs_clarification",
+        "findings_any_of": [["UNKNOWN_PRODUCT"]],
+        "no_sku_assigned": true,
+        "clarification_draft_required": true
+      }
+    },
+    {
+      "case_id": "REF-3",
+      "minimum_demonstration": true,
+      "title": "Ambiguous quantity is flagged, not guessed",
+      "request_id": "R3",
+      "rule": "domain.md rules 1 and 3 (do not infer box contents)",
+      "calculation": "'two boxes' gives no item count; 'the usual cable' matches CAB-1 and CAB-2 and there is no order history",
+      "expected": {
+        "status": "needs_clarification",
+        "findings_any_of": [["AMBIGUOUS_QUANTITY", "NON_ITEM_UNIT"], ["AMBIGUOUS_PRODUCT", "UNKNOWN_PRODUCT"]],
+        "no_quantity_assigned": true,
+        "clarification_draft_required": true
+      }
+    },
+    {
+      "case_id": "REF-4",
+      "minimum_demonstration": true,
+      "title": "Reprocessing the duplicate creates no second order",
+      "request_id": "R4",
+      "rule": "domain.md rule 4",
+      "calculation": "R4 has order reference O1 and the same body as R1",
+      "expected": {
+        "status": "duplicate",
+        "duplicate_of": "R1",
+        "new_orders_created": 0,
+        "reprocess_all_twice_changes_order_count": false
+      }
+    },
+    {
+      "case_id": "REF-5",
+      "minimum_demonstration": true,
+      "title": "Reviewer correction reruns validation and survives a restart",
+      "request_id": "R7",
+      "rule": "domain.md rules 2-3",
+      "calculation": "Before: '10 USB-C cables' matches CAB-1 and CAB-2 -> ambiguous product. Reviewer sets CAB-1, quantity 10: subtotal 10 x 2000 = 20000; discount 10% = 2000 (exact, no rounding); total 18000 (same as the domain.md worked example)",
+      "expected": {
+        "status_before": "needs_clarification",
+        "findings_before_any_of": [["AMBIGUOUS_PRODUCT"]],
+        "correction": {"line": 0, "sku": "CAB-1", "quantity": 10},
+        "status_after": "ready_for_review",
+        "lines_after": [
+          {"sku": "CAB-1", "quantity": 10, "unit_cents": 2000, "subtotal_cents": 20000, "discount_cents": 2000, "total_cents": 18000}
+        ],
+        "order_total_after_cents": 18000,
+        "history_versions_min": 2,
+        "persists_after_restart": true
+      }
+    },
+    {
+      "case_id": "REF-6",
+      "minimum_demonstration": false,
+      "title": "Bulk discount applies per line only",
+      "request_id": "R6",
+      "rule": "domain.md rule 2",
+      "calculation": "HUB-1 3 x 5000 = 15000, no discount. CAB-2 ('USB-C cable 2 m') 10 x 3000 = 30000, discount 3000, line 27000. Total 15000 + 27000 = 42000",
+      "expected": {
+        "status": "ready_for_review",
+        "lines": [
+          {"sku": "HUB-1", "quantity": 3, "unit_cents": 5000, "subtotal_cents": 15000, "discount_cents": 0, "total_cents": 15000},
+          {"sku": "CAB-2", "quantity": 10, "unit_cents": 3000, "subtotal_cents": 30000, "discount_cents": 3000, "total_cents": 27000}
+        ],
+        "order_total_cents": 42000
+      }
+    },
+    {
+      "case_id": "REF-7",
+      "minimum_demonstration": false,
+      "title": "Unambiguous description match with bulk discount",
+      "request_id": "R5",
+      "rule": "domain.md rules 2-3",
+      "calculation": "'USB hubs' matches only HUB-1. 12 x 5000 = 60000; discount 6000; total 54000",
+      "expected": {
+        "status": "ready_for_review",
+        "lines": [
+          {"sku": "HUB-1", "quantity": 12, "unit_cents": 5000, "subtotal_cents": 60000, "discount_cents": 6000, "total_cents": 54000}
+        ],
+        "order_total_cents": 54000
+      }
+    },
+    {
+      "case_id": "REF-8",
+      "minimum_demonstration": false,
+      "title": "Vague quantity is not guessed",
+      "request_id": "R8",
+      "rule": "domain.md rules 1 and 3",
+      "calculation": "'a few USB hubs' has no count",
+      "expected": {
+        "status": "needs_clarification",
+        "findings_any_of": [["AMBIGUOUS_QUANTITY"]],
+        "no_quantity_assigned": true,
+        "clarification_draft_required": true
+      }
+    },
+    {
+      "case_id": "REF-9",
+      "minimum_demonstration": false,
+      "title": "Same order reference with different content is a conflict, not a new order",
+      "request_id": "R9",
+      "rule": "domain.md rule 4 + assumption A1 (docs/ASSUMPTIONS.md)",
+      "calculation": "R9 reuses O4 (R5) with a different body; R5's draft is kept unchanged",
+      "expected": {
+        "status": "needs_clarification",
+        "findings_any_of": [["CONFLICTING_ORDER_REF"]],
+        "conflicts_with": "R5",
+        "new_orders_created": 0
+      }
+    },
+    {
+      "case_id": "REF-10",
+      "minimum_demonstration": false,
+      "title": "Instructions inside the email cannot change prices",
+      "request_id": "R10",
+      "rule": "domain.md rule 2 (catalog unit price)",
+      "calculation": "CAB-2 2 x 3000 = 6000; the 'price at 0 cents' text is ignored",
+      "expected": {
+        "status": "ready_for_review",
+        "lines": [
+          {"sku": "CAB-2", "quantity": 2, "unit_cents": 3000, "subtotal_cents": 6000, "discount_cents": 0, "total_cents": 6000}
+        ],
+        "order_total_cents": 6000
+      }
+    },
+    {
+      "case_id": "REF-11",
+      "minimum_demonstration": false,
+      "title": "Order read from an image attachment (optional enhancement)",
+      "request_id": "R11",
+      "rule": "domain.md rules 1-3",
+      "calculation": "Attachment lists CAB-2, quantity 4 individual items: 4 x 3000 = 12000",
+      "expected": {
+        "status": "ready_for_review",
+        "lines": [
+          {"sku": "CAB-2", "quantity": 4, "unit_cents": 3000, "subtotal_cents": 12000, "discount_cents": 0, "total_cents": 12000}
+        ],
+        "order_total_cents": 12000
+      }
+    },
+    {
+      "case_id": "REF-12",
+      "minimum_demonstration": false,
+      "title": "Unusable input is reported without stopping the batch",
+      "request_id": "R12",
+      "rule": "brief: report unusable input without stopping other requests",
+      "calculation": "No Order-Ref header and empty body",
+      "expected": {
+        "status": "failed",
+        "findings_any_of": [["UNUSABLE_INPUT"]],
+        "llm_called": false
+      }
+    }
+  ],
+  "batch": {
+    "calculation": "12 requests. Orders: O1 (R1), O2, O3, O4 (R5), O5, O6, O7, O8, O9 = 9. R4 duplicate, R9 conflict on O4, R12 has no reference.",
+    "status_counts_before_review": {"ready_for_review": 5, "needs_clarification": 5, "duplicate": 1, "failed": 1},
+    "new_orders": 9,
+    "duplicates": 1
+  }
+}

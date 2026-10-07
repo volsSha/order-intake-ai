@@ -1,0 +1,6 @@
+Request-ID: R9
+Order-Ref: O4
+From: dana@harbor-supply.example
+Subject: Re: Hubs for the warehouse
+
+Update for our order: please make it 15 hubs instead.

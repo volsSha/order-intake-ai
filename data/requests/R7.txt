@@ -1,0 +1,6 @@
+Request-ID: R7
+Order-Ref: O6
+From: it@bluebird-labs.example
+Subject: Cables for the new office
+
+Please send 10 USB-C cables for the new office.

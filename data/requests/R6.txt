@@ -1,0 +1,13 @@
+Request-ID: R6
+Order-Ref: O5
+From: purchasing@greenfield-office.example
+Subject: Order O5
+
+Hello,
+
+We need the following:
+- 3 x HUB-1
+- 10 x USB-C cable 2 m
+
+Regards,
+Greenfield purchasing

@@ -1,0 +1,6 @@
+Request-ID: R8
+Order-Ref: O7
+From: sam@maple-studio.example
+Subject: Hubs
+
+Can you send a few USB hubs? Whatever you think is enough.

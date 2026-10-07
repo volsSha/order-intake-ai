@@ -1,0 +1,11 @@
+Request-ID: R5
+Order-Ref: O4
+From: dana@harbor-supply.example
+Subject: Hubs for the warehouse
+
+Hi team,
+
+Could you ship 12 USB hubs to our warehouse?
+
+Thanks,
+Dana

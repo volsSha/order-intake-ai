@@ -1,0 +1,6 @@
+Request-ID: R3
+Order-Ref: O3
+From: frank@corner-shop.example
+Subject: Order O3
+
+Send two boxes of the usual cable.

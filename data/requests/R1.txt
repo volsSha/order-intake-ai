@@ -1,0 +1,6 @@
+Request-ID: R1
+Order-Ref: O1
+From: buyer@northwind-retail.example
+Subject: Order O1
+
+Please send 2 individual CAB-1 cables.

@@ -13,3 +13,16 @@ Chronological record of how the solution was built with AI assistance: what was 
 - Starter files live in `starter/` with SHA-256 checksums so a reviewer can confirm they are unmodified.
 
 **AI configuration introduced.** Project `CLAUDE.md` (agent instructions for Claude Code).
+
+## Stage 1 — Data preparation (2026-10-07)
+
+**Goal.** Extend the 4 seed requests to ~10, keep seed cases, write expected results independently of the app.
+
+**AI instruction (Claude Code, following `starter/skills/generate-assignment-data/SKILL.md`).** "Extend tasks/orders to about 12 email-style requests. Keep R1–R4 bodies verbatim. Add one scenario per gap: bulk discount, per-line discount, reviewer correction ending at the worked example (10 × CAB-1 = 18000), vague quantity, same order ref with different content, a prompt-injection attempt on price, an image attachment, an unusable file. Do not add catalog items or pricing policies."
+
+**Checks.**
+- `scripts/verify_reference.py` re-implements the two pricing rules with `fractions.Fraction` and imports nothing from the app; it recomputes every expected line and total and the domain.md worked example. Result: OK.
+- Mutation check of the checker itself: changed REF-6's CAB-2 discount to 0 → verifier reported 3 errors; restored → OK. This shows the verifier would catch a wrong expectation.
+- Rendered attachment inspected visually.
+
+**Correction / finding.** While writing a rounding case the catalog turned out to make rounding impossible to exercise (all prices are multiples of 1000, so 10% is always whole cents). Instead of adding catalog items (the brief says keep the catalog), rounding moved to unit tests with synthetic prices, and the limitation is documented in `data/GENERATION.md`.
