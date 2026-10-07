@@ -1,6 +1,6 @@
 # Minimum demonstration — check results
 
-Generated 2026-10-07T18:06:10+00:00 by `uv run order-intake check` · model `openai/gpt-6-luna` · LLM mode `replay`.
+Generated 2026-10-07T18:10:24+00:00 by `uv run order-intake check` · model `openai/gpt-6-luna` · LLM mode `replay`.
 Expected values come from `data/reference/expected.json` (written and verified independently of the app); observed values come from a fresh database built by the real pipeline.
 
 **Overall: PASS**
@@ -58,7 +58,10 @@ Calculation: 'Moon adapter' matches no SKU or catalog description; no price can 
 | status | needs_clarification | needs_clarification | PASS |
 | finding one of ['UNKNOWN_PRODUCT'] | ["UNKNOWN_PRODUCT"] | ["UNKNOWN_PRODUCT"] | PASS |
 | no SKU assigned | [] | [] | PASS |
-| clarification draft saved | non-empty | Could you clarify which Moon adapter you mean? | PASS |
+| clarification draft saved | non-empty | Hello,
+
+Thank you for order O2. Before we prepare it, please confirm:
+- Moon ada | PASS |
 
 ### REF-3 · R3 · Ambiguous quantity is flagged, not guessed — PASS
 
@@ -70,7 +73,10 @@ Calculation: 'two boxes' gives no item count; 'the usual cable' matches CAB-1 an
 | finding one of ['AMBIGUOUS_QUANTITY', 'NON_ITEM_UNIT'] | ["AMBIGUOUS_QUANTITY", "NON_ITEM_UNIT"] | ["AMBIGUOUS_PRODUCT", "NON_ITEM_UNIT"] | PASS |
 | finding one of ['AMBIGUOUS_PRODUCT', 'UNKNOWN_PRODUCT'] | ["AMBIGUOUS_PRODUCT", "UNKNOWN_PRODUCT"] | ["AMBIGUOUS_PRODUCT", "NON_ITEM_UNIT"] | PASS |
 | no quantity assigned | [] | [] | PASS |
-| clarification draft saved | non-empty | Which cable would you like (USB-C cable 1 m or 2 m), and how many individual cab | PASS |
+| clarification draft saved | non-empty | Hello,
+
+Thank you for order O3. Before we prepare it, please confirm:
+- Which ca | PASS |
 
 ### REF-4 · R4 · Reprocessing the duplicate creates no second order — PASS
 
@@ -126,7 +132,10 @@ Calculation: 'a few USB hubs' has no count
 | status | needs_clarification | needs_clarification | PASS |
 | finding one of ['AMBIGUOUS_QUANTITY'] | ["AMBIGUOUS_QUANTITY"] | ["AMBIGUOUS_QUANTITY"] | PASS |
 | no quantity assigned | [] | [] | PASS |
-| clarification draft saved | non-empty | How many USB hubs would you like to order? | PASS |
+| clarification draft saved | non-empty | Hello,
+
+Thank you for order O7. Before we prepare it, please confirm:
+- How many | PASS |
 
 ### REF-9 · R9 · Same order reference with different content is a conflict, not a new order — PASS
 

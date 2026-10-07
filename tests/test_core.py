@@ -6,7 +6,7 @@ from order_intake.catalog import Catalog
 from order_intake.config import ROOT
 from order_intake.inbox import UnusableInput, list_request_files, parse_request_file
 from order_intake.pricing import percent_half_up, price_line
-from order_intake.validation import NEEDS_CLARIFICATION, READY, validate_lines
+from order_intake.validation import NEEDS_CLARIFICATION, READY, clarification_message, validate_lines
 
 CATALOG = Catalog.load(ROOT / "data" / "catalog.json")
 
@@ -183,3 +183,28 @@ def test_attachment_outside_folder_is_rejected(tmp_path: Path):
     (tmp_path / "X1.txt").write_text("Request-ID: X1\nOrder-Ref: OX\nAttachment: ../../etc/passwd\n\nHi\n")
     with pytest.raises(UnusableInput, match="outside"):
         parse_request_file(tmp_path / "X1.txt", tmp_path)
+
+
+# clarification ----------------------------------------------------------------
+
+def test_model_clarification_gets_order_reference_frame():
+    lines = [model_line(product_text="Moon adapter", product_status="unknown", sku=None, candidate_skus=[])]
+    result = validate_lines(lines, CATALOG, author="model", looked_up_skus=set(), source_text="one Moon adapter")
+    msg = clarification_message("O2", result["findings"], lines, CATALOG, "- Moon adapter is not in our catalog.")
+    assert msg.startswith("Hello,") and "order O2" in msg
+    assert "- Moon adapter is not in our catalog." in msg and msg.endswith("Order desk")
+
+
+def test_code_findings_use_template_not_model_draft():
+    lines = [model_line(product_text="USB-C cables", sku="CAB-1", quantity_text="10", quantity=10)]
+    result = validate_lines(lines, CATALOG, author="model", looked_up_skus={"CAB-1", "CAB-2"},
+                            source_text="10 USB-C cables")
+    msg = clarification_message("O6", result["findings"], lines, CATALOG, "- anything")
+    assert "anything" not in msg and "CAB-1" in msg and "CAB-2" in msg
+
+
+def test_unit_is_kept_on_validated_lines():
+    model = validate_lines([model_line(unit="item")], CATALOG, author="model", looked_up_skus={"CAB-1"},
+                           source_text="2 CAB-1 cables")
+    reviewer = validate_lines([{"sku": "CAB-1", "quantity": 2}], CATALOG, author="reviewer")
+    assert model["lines"][0]["unit"] == "item" and reviewer["lines"][0]["unit"] == "item"

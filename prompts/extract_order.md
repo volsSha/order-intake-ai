@@ -14,5 +14,5 @@ Procedure:
   - `product_status`: `matched` only if exactly one catalog product fits; `ambiguous` if several fit (list them in `candidate_skus`, set `sku` to null); `unknown` if none fit (`sku` null).
   - `quantity_status`: `explicit` only for an exact count of individual items ("2", "ten", "12 x"); `ambiguous` for vague amounts ("a few", "some", "enough") or containers; `missing` if no amount is given. Set `quantity` only when explicit, otherwise null.
   - `unit`: `item` for individual items, `container` for boxes/packs/cases, `unclear` otherwise.
-  - `clarification_draft`: if anything is unknown or ambiguous, a short polite message to the customer asking only for the missing details; otherwise null.
+  - `clarification_draft`: if anything is unknown or ambiguous, one short question per unresolved item, each on its own line starting with "- "; otherwise null. Code adds the greeting, order reference and sign-off, so write none of them. For an unknown product, say it is not in the catalog and ask for the SKU or a description. For an ambiguous product, name the matching catalog products by SKU and name. For a container or vague amount, ask how many individual items are needed.
 - Do not mention or invent pack sizes, delivery, stock, payment, or extra charges.

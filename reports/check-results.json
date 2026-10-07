@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-07T18:06:10+00:00",
+  "generated_at": "2026-10-07T18:10:24+00:00",
   "model_id": "openai/gpt-6-luna",
   "llm_mode": "replay",
   "processing": [
@@ -149,7 +149,7 @@
         {
           "name": "clarification draft saved",
           "expected": "non-empty",
-          "observed": "Could you clarify which Moon adapter you mean?",
+          "observed": "Hello,\n\nThank you for order O2. Before we prepare it, please confirm:\n- Moon ada",
           "passed": true
         }
       ],
@@ -204,7 +204,7 @@
         {
           "name": "clarification draft saved",
           "expected": "non-empty",
-          "observed": "Which cable would you like (USB-C cable 1 m or 2 m), and how many individual cab",
+          "observed": "Hello,\n\nThank you for order O3. Before we prepare it, please confirm:\n- Which ca",
           "passed": true
         }
       ],
@@ -471,7 +471,7 @@
         {
           "name": "clarification draft saved",
           "expected": "non-empty",
-          "observed": "How many USB hubs would you like to order?",
+          "observed": "Hello,\n\nThank you for order O7. Before we prepare it, please confirm:\n- How many",
           "passed": true
         }
       ],

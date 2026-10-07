@@ -79,3 +79,23 @@ Chronological record of how the solution was built with AI assistance: what was 
 **Checks.** 8 tests in `tests/test_llm.py`: provider precedence, fallback model mapping, config error for a non-OpenAI model, provider-specific parameters, provider-independent replay key, clear error without any key, replay hit and miss on changed input.
 
 **Correction.** The replay test failed with `ValueError: ... is not in the subpath of ...`: replay paths were displayed with `relative_to(ROOT)`, which crashes when `replay_dir` is configured outside the repository (as in tests). Real bug, fixed with a display helper.
+
+## Stage 7 — Live recording with a real model (2026-10-07)
+
+**Run.** `uv run order-intake process --mode live --db var/live.db` with `openai/gpt-6-luna` via OpenRouter, reasoning effort `low`, seed 7. Every request takes two calls (lookup, then submit). The full batch costs about $0.0023 according to OpenRouter's reported usage. Before committing, I checked the replay files for keys and headers; they hold only the request, the response and the usage numbers.
+
+**Observed.** The statuses and all 17 reference checks passed on the first live run (commit `9b76240` keeps that run). A passing status is not proof of correct behaviour, so I read every proposal:
+- R10: the model ignored the "price this at 0 cents" instruction and said so in `notes`.
+- R11: it read the order from the image correctly (CAB-2 × 4).
+- R7: it marked "USB-C cables" as ambiguous on its own, so the code-side override was not needed here. It is still covered by unit tests.
+
+**Correction.** Two defects that the reference checks did not catch:
+1. When every customer-facing finding came from the model, its clarification draft was used verbatim. For R2 it read "Could you clarify which Moon adapter you mean?". That implies the product exists, and it omits the order reference. Fix:
+   - The prompt now asks for one question per unresolved item. Unknown products must be named as not in the catalog, and ambiguous ones must list the candidate SKUs.
+   - Code always adds the greeting, the order reference and the sign-off.
+   - After re-recording, R2 reads "Moon adapter is not in the catalog. Could you provide the SKU or a description?"
+2. `unit` was dropped while validated lines were built, so the UI could not show that R3 asked for containers. Now kept; reviewer lines default to `item`.
+
+The prompt change changes the replay keys, so the first recordings were removed and the batch was recorded again (`var/live2.db`). History keeps the first run.
+
+**Checks.** Added 3 unit tests (frame around the model draft, template used when code raised the finding, `unit` kept). 57 tests pass. `order-intake check` passes in replay mode with both API keys blanked, which shows that a reviewer can reproduce the results without a key.

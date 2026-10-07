@@ -149,6 +149,7 @@ def validate_lines(
             "name": item.name if item else None,
             "quantity": qty if isinstance(qty, int) and not isinstance(qty, bool) else None,
             "quantity_text": qty_text,
+            "unit": line.get("unit") or (None if author == "model" else "item"),
             "valid": not blocking_here,
         }
         if not blocking_here and item and isinstance(qty, int) and qty > 0:
@@ -175,8 +176,11 @@ def clarification_message(order_ref: str, findings: list[dict], lines: list[dict
     customer = [f for f in findings if f["code"] in CUSTOMER_FACING and f["severity"] == BLOCKING]
     if not customer:
         return None
+    greeting = f"Hello,\n\nThank you for order {order_ref}. Before we prepare it, please confirm:\n"
+    closing = "\n\nKind regards,\nOrder desk"
+    # Model wording only when every customer-facing issue came from the model; code adds the fixed frame.
     if model_draft and model_draft.strip() and all(f["source"] == "model" for f in customer):
-        return model_draft.strip()
+        return greeting + model_draft.strip() + closing
     questions = []
     for f in customer:
         line = lines[f["line"]] if f["line"] is not None and f["line"] < len(lines) else {}
@@ -192,5 +196,4 @@ def clarification_message(order_ref: str, findings: list[dict], lines: list[dict
             questions.append(f"How many individual items of \"{phrase}\" do you need?")
         elif f["code"] == "NO_LINES":
             questions.append("Which products and how many individual items would you like?")
-    body = "\n".join(f"- {q}" for q in dict.fromkeys(questions))
-    return f"Hello,\n\nThank you for order {order_ref}. Before we prepare it, please confirm:\n{body}\n\nKind regards,\nOrder desk"
+    return greeting + "\n".join(f"- {q}" for q in dict.fromkeys(questions)) + closing
