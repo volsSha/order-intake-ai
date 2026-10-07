@@ -28,9 +28,9 @@
     "skills": {
       "status": "used",
       "files": [
-        "starter/skills/generate-assignment-data/SKILL.md",
+        "starter/skills/generate-assignment-data/",
         "data/GENERATION.md",
-        "ai-workflow/snapshots/skills/fastapi/SKILL.md"
+        "ai-workflow/snapshots/skills/fastapi/"
       ],
       "notes": "The starter-pack data-generation skill was read and followed as guidance while extending the dataset. The user-level `fastapi` skill was invoked after the build to review the web layer; it found two defects, which were fixed. No custom skills were created."
     },
@@ -216,8 +216,8 @@
       "category": "skills",
       "purpose": "Checklist for reviewing src/order_intake/web/app.py: structure, request bodies, async, security, testing",
       "original_path_or_scope": "~/.claude/skills/fastapi (user; symlink to a shared skills folder)",
-      "saved_path": "ai-workflow/snapshots/skills/fastapi/SKILL.md",
-      "version_or_commit": "skill version 2.1.0; SKILL.md only (the assets, references and scripts folders were not loaded)",
+      "saved_path": "ai-workflow/snapshots/skills/fastapi/",
+      "version_or_commit": "skill version 2.1.0, full folder copied as is (SKILL.md, assets/, references/, scripts/); only SKILL.md was loaded during the review",
       "used_during": "stage 8 (post-build review)",
       "status": "used",
       "redactions": []

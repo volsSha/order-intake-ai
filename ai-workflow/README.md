@@ -32,7 +32,7 @@ The client is the `openai` Python SDK 3.26.0. All of these settings are in `src/
 | Application tools | [`src/order_intake/schemas.py`](../src/order_intake/schemas.py) | project |
 | Application model settings | [`src/order_intake/config.py`](../src/order_intake/config.py), [`.env.example`](../.env.example) | project |
 | Data-generation skill (supplied) | [`starter/skills/generate-assignment-data/SKILL.md`](../starter/skills/generate-assignment-data/SKILL.md) | starter pack, followed as guidance |
-| FastAPI skill | [`snapshots/skills/fastapi/SKILL.md`](snapshots/skills/fastapi/SKILL.md) | user |
+| FastAPI skill (full folder: `SKILL.md`, `assets/`, `references/`, `scripts/`) | [`snapshots/skills/fastapi/`](snapshots/skills/fastapi/) | user, copied as is |
 | User-level instructions (excerpt) | [`snapshots/user-CLAUDE.excerpt.md`](snapshots/user-CLAUDE.excerpt.md) | user, sanitized |
 | User-level settings (excerpt) | [`snapshots/user-claude-settings.excerpt.json`](snapshots/user-claude-settings.excerpt.json) | user, sanitized |
 | Hooks | [`snapshots/hooks/`](snapshots/hooks/) | user |
@@ -64,8 +64,6 @@ These were left out, and their values are not shown:
 - one section of the user-level CLAUDE.md about an unrelated tool;
 - home-directory paths, replaced with `~`.
 
-The FastAPI skill's `assets/`, `references/` and `scripts/` folders were not loaded, so they are not copied.
-
 API keys were never written to the repository. The `Read(**/.env*)` deny rules also kept the assistant from reading the local `.env`.
 
 ### Restore
@@ -73,7 +71,7 @@ API keys were never written to the repository. The `Read(**/.env*)` deny rules a
 Project files are already in their normal locations. For the user-level parts:
 1. Merge the settings excerpt into `~/.claude/settings.json`.
 2. Copy the hooks to `~/.claude/hooks/` and make them executable. The rtk hook also needs `rtk` and `jq`.
-3. Copy `snapshots/skills/fastapi/` to `~/.claude/skills/fastapi/`.
+3. Copy `snapshots/skills/fastapi/` to `~/.claude/skills/fastapi/`; `python scripts/validate.py` inside it checks the structure.
 
 ## One workflow example
 
