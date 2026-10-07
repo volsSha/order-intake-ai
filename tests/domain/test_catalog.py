@@ -1,4 +1,8 @@
+import pytest
+
 from tests.domain.helpers import CATALOG
+
+pytestmark = pytest.mark.unit
 
 
 def test_search_by_sku_inside_phrase():

@@ -1,6 +1,9 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from order_intake.web.app import create_app
+
+pytestmark = pytest.mark.integration
 
 
 def client_for(settings, make_pipeline, only=None):

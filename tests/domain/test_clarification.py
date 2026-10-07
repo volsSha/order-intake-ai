@@ -1,5 +1,9 @@
+import pytest
+
 from order_intake.domain.validation import clarification_message, validate_lines
 from tests.domain.helpers import CATALOG, model_line
+
+pytestmark = pytest.mark.unit
 
 
 def test_model_clarification_gets_order_reference_frame():

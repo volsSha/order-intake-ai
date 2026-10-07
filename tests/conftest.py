@@ -1,12 +1,18 @@
 import json
+import os
 from dataclasses import replace
 
 import pytest
+from hypothesis import settings as hypothesis_settings
 
 from order_intake.config import load_settings
 from order_intake.llm.llm import ChatClient, LLMResult
 from order_intake.pipeline import Pipeline
 from order_intake.storage import Store
+
+hypothesis_settings.register_profile("ci", derandomize=True, deadline=None, print_blob=True)
+hypothesis_settings.register_profile("dev", max_examples=100)
+hypothesis_settings.load_profile("ci" if os.environ.get("CI") else "dev")
 
 
 def line(product_text, sku, qty_text, qty, product_status="matched", quantity_status="explicit", unit="item",

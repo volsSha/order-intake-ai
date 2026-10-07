@@ -7,6 +7,8 @@ from order_intake.config import ConfigError
 from order_intake.llm.llm import ChatClient, LLMError, ReplayMissing
 from order_intake.llm.schemas import TOOLS
 
+pytestmark = pytest.mark.unit
+
 MESSAGES = [{"role": "system", "content": "s"}, {"role": "user", "content": "u"}]
 
 

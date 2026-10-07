@@ -3,6 +3,8 @@ import pytest
 from order_intake.pipeline import ReviewError
 from order_intake.storage import Store
 
+pytestmark = pytest.mark.integration
+
 
 def statuses(pipeline):
     return {r["request_id"]: r["status"] for r in pipeline.store.list_requests()}

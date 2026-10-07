@@ -1,5 +1,9 @@
-from order_intake.domain.validation import NEEDS_CLARIFICATION, READY, validate_lines
+import pytest
+
+from order_intake.domain.validation import NEEDS_CLARIFICATION, READY, numbers_in, validate_lines
 from tests.domain.helpers import CATALOG, codes, model_line
+
+pytestmark = pytest.mark.unit
 
 
 def test_valid_model_line_is_priced():
@@ -87,3 +91,74 @@ def test_unit_is_kept_on_validated_lines():
                            source_text="2 CAB-1 cables")
     reviewer = validate_lines([{"sku": "CAB-1", "quantity": 2}], CATALOG, author="reviewer")
     assert model["lines"][0]["unit"] == "item" and reviewer["lines"][0]["unit"] == "item"
+
+
+def validate_model(line, source_text, looked_up=("CAB-1",)):
+    return validate_lines([line], CATALOG, author="model", looked_up_skus=set(looked_up), source_text=source_text)
+
+
+@pytest.mark.parametrize("quantity, discount, total", [(9, 0, 18000), (10, 2000, 18000), (11, 2200, 19800)])
+def test_validated_line_discount_boundary(quantity, discount, total):
+    result = validate_model(model_line(quantity_text=str(quantity), quantity=quantity),
+                            f"Please send {quantity} CAB-1 cables.")
+    assert result["status"] == READY
+    assert result["lines"][0]["discount_cents"] == discount
+    assert result["order_total_cents"] == total
+
+
+@pytest.mark.parametrize("text, expected", [
+    ("one", {1}), ("two", {2}), ("nine", {9}), ("ten", {10}), ("Twelve", {12}), ("twenty", {20}),
+    ("12 x", {12}), ("3 or 4", {3, 4}), ("a dozen", set()), ("a few", set()),
+])
+def test_numbers_in_reads_digits_and_number_words(text, expected):
+    assert numbers_in(text) == expected
+
+
+@pytest.mark.parametrize("word, quantity", [("two", 2), ("nine", 9), ("ten", 10), ("eleven", 11), ("twelve", 12)])
+def test_number_word_quantity_is_accepted(word, quantity):
+    result = validate_model(model_line(quantity_text=word, quantity=quantity), f"Send {word} CAB-1 cables.")
+    assert result["status"] == READY
+    assert result["lines"][0]["quantity"] == quantity
+
+
+@pytest.mark.parametrize("word, quantity", [("two", 3), ("twelve", 2), ("ten", 100)])
+def test_number_word_that_disagrees_with_quantity_is_blocked(word, quantity):
+    result = validate_model(model_line(quantity_text=word, quantity=quantity), f"Send {word} CAB-1 cables.")
+    assert codes(result) == {"QUANTITY_NOT_IN_SOURCE"}
+
+
+@pytest.mark.xfail(strict=True, reason="known gap: 'twenty-one' reads as {20, 1}, so quantity 1 passes")
+def test_compound_number_word_does_not_accept_a_part():
+    result = validate_model(model_line(quantity_text="twenty-one", quantity=1), "Send twenty-one CAB-1 cables.")
+    assert "QUANTITY_NOT_IN_SOURCE" in codes(result)
+
+
+@pytest.mark.parametrize("qty_text", ["two boxes", "1 box", "3 packs", "a pack", "one case", "2 cartons"])
+def test_container_quantity_is_not_priced(qty_text):
+    line = model_line(quantity_text=qty_text, quantity=None, quantity_status="ambiguous", unit="container")
+    result = validate_model(line, f"Send {qty_text} of CAB-1 cables.")
+    assert codes(result) == {"NON_ITEM_UNIT"}
+    assert result["lines"][0]["quantity"] is None
+    assert result["order_total_cents"] is None
+
+
+@pytest.mark.xfail(strict=True, reason="known gap: code trusts the model's unit label for container words")
+def test_container_words_labelled_as_items_are_still_blocked():
+    result = validate_model(model_line(quantity_text="2 boxes", quantity=2), "Send 2 boxes of CAB-1 cables.")
+    assert result["status"] == NEEDS_CLARIFICATION
+
+
+@pytest.mark.parametrize("qty_text", ["a few", "some", "several", "enough"])
+def test_vague_amount_needs_clarification(qty_text):
+    line = model_line(quantity_text=qty_text, quantity=None, quantity_status="ambiguous", unit="unclear")
+    result = validate_model(line, f"Send {qty_text} CAB-1 cables.")
+    assert codes(result) == {"AMBIGUOUS_QUANTITY"}
+    assert result["status"] == NEEDS_CLARIFICATION
+    assert result["lines"][0]["quantity"] is None
+
+
+@pytest.mark.parametrize("qty_text, guess", [("a few", 3), ("some", 2), ("several", 5), ("enough", 10)])
+def test_vague_amount_with_guessed_number_is_blocked(qty_text, guess):
+    result = validate_model(model_line(quantity_text=qty_text, quantity=guess), f"Send {qty_text} CAB-1 cables.")
+    assert codes(result) == {"QUANTITY_NOT_IN_SOURCE"}
+    assert result["order_total_cents"] is None

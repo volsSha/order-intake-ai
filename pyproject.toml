@@ -27,12 +27,30 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",
+    "hypothesis>=6.168.5",
     "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
     "ruff>=0.16.10",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "unit: fast tests of one module with no I/O beyond temporary files",
+    "integration: tests across modules, the database, the web app or the repository",
+]
+
+[tool.coverage.run]
+source = ["order_intake"]
+omit = [
+    "src/order_intake/llm/*",
+    "src/order_intake/web/*",
+    "src/order_intake/cli.py",
+]
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
 
 [tool.ruff]
 line-length = 110
