@@ -12,7 +12,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from ..config import Settings
-from ..llm.llm import ChatClient
+from ..llm.replay import ModelFactory
 from ..pipeline import Pipeline
 from ..storage import Store, now
 
@@ -114,13 +114,13 @@ def evaluate_case(case: dict, store: Store, pipeline: Pipeline, settings: Settin
             "passed": all(ok for *_, ok in checks)}
 
 
-def run_checks(settings: Settings, out_dir: Path, client_factory=ChatClient) -> dict:
+def run_checks(settings: Settings, out_dir: Path, model_factory=ModelFactory) -> dict:
     ref = json.loads((settings.data_dir / "reference" / "expected.json").read_text(encoding="utf-8"))
     work = Path(tempfile.mkdtemp(prefix="order-intake-check-"))
     try:
         main_settings = replace(settings, db_path=work / "check.db")
         store = Store(main_settings.db_path)
-        pipeline = Pipeline(main_settings, store, client=client_factory(main_settings))
+        pipeline = Pipeline(main_settings, store, model_factory=model_factory())
         processing = pipeline.process_all()
         counts_before = store.status_counts()
         orders_before = store.order_count()
@@ -140,17 +140,19 @@ def run_checks(settings: Settings, out_dir: Path, client_factory=ChatClient) -> 
         sim_settings = replace(settings, db_path=work / "simulated.db")
         sim_store = Store(sim_settings.db_path)
         sim = Pipeline(sim_settings, sim_store,
-                       client=client_factory(sim_settings, simulate={"R1": "model_unavailable", "R5": "invalid_output"}))
+                       model_factory=model_factory(simulate={"R1": "model_unavailable", "R5": "invalid_output"}))
         sim.process_all(only={"R1", "R2", "R5"})
         r1, r2, r5 = (sim_store.get_request(x) for x in ("R1", "R2", "R5"))
         simulated = [
             {"name": "R1 simulated model outage -> failed, nothing invented", "expected": "failed MODEL_UNAVAILABLE",
              "observed": f"{r1['status']} {r1['status_reason'][:60]}",
              "passed": r1["status"] == "failed" and r1["status_reason"].startswith("MODEL_UNAVAILABLE")
-             and sim_store.latest_proposal("R1") is None},
+             and sim_store.latest_proposal("R1") is None
+             and [c["source"] for c in sim_store.llm_calls("R1")] == ["simulated"]},
             {"name": "R5 simulated invalid output -> failed after one retry", "expected": "failed INVALID_MODEL_OUTPUT",
              "observed": f"{r5['status']} {r5['status_reason'][:60]}",
-             "passed": r5["status"] == "failed" and r5["status_reason"].startswith("INVALID_MODEL_OUTPUT")},
+             "passed": r5["status"] == "failed" and r5["status_reason"].startswith("INVALID_MODEL_OUTPUT")
+             and len(sim_store.llm_calls("R5")) == 2},
             {"name": "R2 unaffected by other failures", "expected": "needs_clarification", "observed": r2["status"],
              "passed": r2["status"] == "needs_clarification"},
         ]

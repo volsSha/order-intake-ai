@@ -1,6 +1,7 @@
 """Batch processing and reviewer actions. One bad request never stops the batch."""
 
 import hashlib
+from collections.abc import Callable
 from pathlib import Path
 
 from .config import Settings
@@ -16,9 +17,11 @@ from .domain.validation import (
     finding,
     validate_lines,
 )
-from .llm.extraction import ExtractionFailed, extract
-from .llm.llm import ChatClient
+from .llm.agent import ExtractionFailed, extract
+from .llm.replay import ModelFactory, ReplayModel
 from .storage import Store
+
+ModelFactoryFn = Callable[[Settings, Store, str], ReplayModel]
 
 
 class ReviewError(Exception):
@@ -32,11 +35,11 @@ def reason_from(findings: list[dict]) -> str | None:
 
 class Pipeline:
     def __init__(self, settings: Settings, store: Store, catalog: Catalog | None = None,
-                 client: ChatClient | None = None):
+                 model_factory: ModelFactoryFn | None = None):
         self.settings = settings
         self.store = store
         self.catalog = catalog or Catalog.load(settings.catalog_path)
-        self.client = client or ChatClient(settings)
+        self.model_factory = model_factory or ModelFactory()
 
     # batch ----------------------------------------------------------------
     def process_all(self, only: set[str] | None = None, retry_failed: bool = False) -> list[dict]:
@@ -88,7 +91,8 @@ class Pipeline:
 
         self.store.clear_attempt(req.request_id)
         try:
-            extraction = extract(req, self.catalog, self.client, self.settings, self.store)
+            model = self.model_factory(self.settings, self.store, req.request_id)
+            extraction = extract(req, self.catalog, model, self.settings, self.store)
         except ExtractionFailed as exc:
             self.store.set_status(req.request_id, FAILED, f"{exc.code}: {exc}")
             self.store.audit(req.request_id, "system", "model_failed", {"code": exc.code, "error": str(exc)})

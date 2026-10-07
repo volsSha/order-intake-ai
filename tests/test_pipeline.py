@@ -28,9 +28,9 @@ def test_batch_statuses_match_reference(make_pipeline):
 def test_duplicate_and_conflict_do_not_call_the_model_or_create_orders(make_pipeline):
     p = make_pipeline()
     p.process_all(only={"R1", "R5"})
-    calls_before, orders_before = p.client.calls, p.store.order_count()
+    calls_before, orders_before = p.model_factory.calls, p.store.order_count()
     p.process_all(only={"R4", "R9"})
-    assert p.client.calls == calls_before
+    assert p.model_factory.calls == calls_before
     assert p.store.order_count() == orders_before
     assert p.store.get_request("R4")["related_request_id"] == "R1"
     assert p.store.get_request("R9")["status_reason"] == "CONFLICTING_ORDER_REF"
@@ -40,11 +40,11 @@ def test_duplicate_and_conflict_do_not_call_the_model_or_create_orders(make_pipe
 def test_reprocessing_everything_is_idempotent(make_pipeline):
     p = make_pipeline()
     p.process_all()
-    snapshot, orders, calls = statuses(p), p.store.order_count(), p.client.calls
+    snapshot, orders, calls = statuses(p), p.store.order_count(), p.model_factory.calls
     again = p.process_all()
     assert statuses(p) == snapshot
     assert p.store.order_count() == orders
-    assert p.client.calls == calls
+    assert p.model_factory.calls == calls
     assert all(r["action"].startswith("skipped") for r in again)
 
 
@@ -63,7 +63,7 @@ def test_model_unavailable_is_visible_and_retryable(make_pipeline):
     assert p.store.latest_proposal("R1") is None
     assert [c["source"] for c in p.store.llm_calls("R1")] == ["simulated"]
     assert statuses(p)["R2"] == "needs_clarification"
-    p.client.simulate = {}
+    p.model_factory.simulate = {}
     p.process_all(only={"R1"}, retry_failed=True)
     assert p.store.get_request("R1")["status"] == "ready_for_review"
     assert p.store.order_count() == 2
@@ -132,9 +132,9 @@ def test_duplicate_request_cannot_be_corrected(make_pipeline):
 
 def test_check_runner_passes_with_a_well_behaved_model(settings, tmp_path):
     from order_intake.evals.check import run_checks
-    from tests.conftest import FakeClient
+    from tests.conftest import ScriptedModels
 
-    report = run_checks(settings, tmp_path / "reports", client_factory=FakeClient)
+    report = run_checks(settings, tmp_path / "reports", model_factory=ScriptedModels)
     failed = [(r["case_id"], c) for r in report["cases"] for c in r["checks"] if not c["passed"]]
     assert failed == []
     assert report["passed"], [c for c in report["batch"] + report["simulated_failures"] if not c["passed"]]

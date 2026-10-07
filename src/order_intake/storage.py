@@ -62,7 +62,8 @@ CREATE TABLE IF NOT EXISTS tool_calls (
     name TEXT NOT NULL,
     arguments_json TEXT,
     result_json TEXT,
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    llm_call_id TEXT
 );
 CREATE TABLE IF NOT EXISTS audit_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -92,6 +93,13 @@ class Store:
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys = ON")
         self.conn.executescript(SCHEMA)
+        self._add_missing_columns()
+
+    def _add_missing_columns(self) -> None:
+        columns = {r["name"] for r in self.conn.execute("PRAGMA table_info(tool_calls)")}
+        if "llm_call_id" not in columns:
+            self.conn.execute("ALTER TABLE tool_calls ADD COLUMN llm_call_id TEXT")
+            self.conn.commit()
 
     def close(self) -> None:
         self.conn.close()
@@ -202,11 +210,12 @@ class Store:
                                  (request_id,)).fetchall()
         return [{**dict(r), "usage": _loads(r["usage_json"])} for r in rows]
 
-    def add_tool_call(self, request_id: str, step: int, name: str, arguments, result) -> None:
+    def add_tool_call(self, request_id: str, step: int, name: str, arguments, result,
+                      llm_call_id: str | None = None) -> None:
         self.conn.execute(
-            "INSERT INTO tool_calls (request_id, step, name, arguments_json, result_json, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
-            (request_id, step, name, json.dumps(arguments), json.dumps(result), now()),
+            "INSERT INTO tool_calls (request_id, step, name, arguments_json, result_json, created_at, llm_call_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (request_id, step, name, json.dumps(arguments), json.dumps(result), now(), llm_call_id),
         )
         self.conn.commit()
 

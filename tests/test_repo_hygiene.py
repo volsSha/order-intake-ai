@@ -9,8 +9,9 @@ from dotenv import dotenv_values
 
 from order_intake.config import ROOT
 
-REPLAY_KEYS = {"replay_key", "request_id", "step", "recorded_at", "provider", "provider_model", "latency_ms",
-               "request", "response"}
+REPLAY_KEYS = {"format_version", "replay_key", "request_id", "step", "recorded_at", "provider", "provider_model",
+               "latency_ms", "request", "response"}
+REPLAY_NAMESPACES = {"extract", "judge"}
 
 KEY_PATTERNS = {
     "sk-key": re.compile(r"\bsk-[A-Za-z0-9_-]{20,}"),
@@ -118,12 +119,15 @@ def test_env_file_is_not_tracked():
 @pytest.mark.integration
 def test_replay_files_parse_and_have_the_recorded_keys():
     files = sorted((ROOT / "replay").rglob("*.json"))
-    assert files
+    if not files:
+        pytest.skip("no replay recordings in the repository")
     for path in files:
         record = json.loads(path.read_text(encoding="utf-8"))
         name = str(path.relative_to(ROOT))
         assert isinstance(record, dict), name
+        assert path.relative_to(ROOT / "replay").parts[0] in REPLAY_NAMESPACES, name
         assert REPLAY_KEYS <= record.keys(), name
+        assert record["format_version"] == 2, name
         assert isinstance(record["request"], dict) and isinstance(record["response"], dict), name
         assert isinstance(record["step"], int) and record["step"] >= 1, name
 

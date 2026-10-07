@@ -71,3 +71,23 @@ def test_rejected_action_shows_full_error_message(settings, make_pipeline):
         assert "%20" in r.headers["location"]
         html = c.get(r.headers["location"]).text
     assert "Only a draft that passed validation (ready_for_review) can be approved." in html
+
+
+def test_model_calls_show_source_provider_tokens_and_cost(settings, make_pipeline):
+    from order_intake.storage import Store
+
+    p = make_pipeline()
+    p.process_all(only={"R1"})
+    p.store.close()
+    store = Store(settings.db_path)
+    store.add_llm_call({"call_id": "R1-s9-x", "request_id": "R1", "step": 9, "model": "openai/gpt-6-luna",
+                        "provider": "openrouter", "source": "replay", "replay_file": "replay/extract/R1/x.json",
+                        "usage": {"input_tokens": 1000, "output_tokens": 234, "total_tokens": 1234, "cost": 0.0021}})
+    store.close()
+    with TestClient(create_app(settings)) as c:
+        detail = c.get("/requests/R1").text
+        dashboard = c.get("/").text
+    assert 'badge src-live">live' in detail and 'badge src-replay">replay' in detail
+    assert "openai/gpt-6-luna · scripted" in detail and "openai/gpt-6-luna · openrouter" in detail
+    assert ">1234<" in detail
+    assert "Cost (recorded)" in dashboard and "$0.0021" in dashboard

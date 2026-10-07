@@ -1,14 +1,19 @@
-import json
 import os
 from dataclasses import replace
 
+import pydantic_ai.models
 import pytest
 from hypothesis import settings as hypothesis_settings
+from pydantic_ai.messages import ModelResponse, ToolCallPart
+from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 from order_intake.config import load_settings
-from order_intake.llm.llm import ChatClient, LLMResult
+from order_intake.llm.providers import LiveModel
+from order_intake.llm.replay import ModelFactory, ReplayModel
 from order_intake.pipeline import Pipeline
 from order_intake.storage import Store
+
+pydantic_ai.models.ALLOW_MODEL_REQUESTS = False
 
 hypothesis_settings.register_profile("ci", derandomize=True, deadline=None, print_blob=True)
 hypothesis_settings.register_profile("dev", max_examples=100)
@@ -37,30 +42,26 @@ SCRIPTED = {
 }
 
 
-class FakeClient(ChatClient):
-    """Scripted stand-in for the model: step 1 searches, step 2 submits."""
+class ScriptedModels(ModelFactory):
+    """Scripted stand-in for the model behind the real ReplayModel: step 1 searches, step 2 submits."""
 
-    def __init__(self, settings, script=None, simulate=None):
-        super().__init__(settings, simulate=simulate)
+    def __init__(self, script=None, simulate=None):
+        super().__init__(simulate=simulate)
         self.script = script if script is not None else SCRIPTED
         self.calls = 0
 
-    def complete(self, request_id, step, messages, tools):
-        if request_id in self.simulate:
-            return super().complete(request_id, step, messages, tools)
+    def respond(self, request_id: str, messages, info: AgentInfo) -> ModelResponse:
         self.calls += 1
         lines = self.script[request_id]
-        record = {"call_id": f"{request_id}-fake-{step}", "request_id": request_id, "step": step,
-                  "model": "fake", "source": "simulated"}
-        if step == 1:
-            calls = [{"id": f"c{i}", "type": "function",
-                      "function": {"name": "search_catalog", "arguments": json.dumps({"query": ln["product_text"]})}}
-                     for i, ln in enumerate(lines)]
-        else:
-            args = {"lines": lines, "clarification_draft": None, "notes": ""}
-            calls = [{"id": "s1", "type": "function",
-                      "function": {"name": "submit_order_draft", "arguments": json.dumps(args)}}]
-        return LLMResult({"role": "assistant", "content": None, "tool_calls": calls}, record)
+        if len(messages) == 1:
+            return ModelResponse(parts=[ToolCallPart("search_catalog", {"query": ln["product_text"]}) for ln in lines])
+        args = {"lines": lines, "clarification_draft": None, "notes": ""}
+        return ModelResponse(parts=[ToolCallPart(info.output_tools[0].name, args)])
+
+    def __call__(self, settings, store, request_id):
+        model = FunctionModel(lambda messages, info: self.respond(request_id, messages, info))
+        return ReplayModel(LiveModel(model, "scripted"), replace(settings, llm_mode="live"), store, request_id,
+                           simulate=self.simulate.get(request_id), replay_files=self.replay_files)
 
 
 @pytest.fixture
@@ -73,6 +74,6 @@ def settings(tmp_path):
 def make_pipeline(settings):
     def factory(script=None, simulate=None):
         store = Store(settings.db_path)
-        return Pipeline(settings, store, client=FakeClient(settings, script=script, simulate=simulate))
+        return Pipeline(settings, store, model_factory=ScriptedModels(script=script, simulate=simulate))
 
     return factory

@@ -2,7 +2,7 @@ import argparse
 import sys
 
 from .config import load_settings
-from .llm.llm import SIMULATIONS, ChatClient
+from .llm.replay import SIMULATIONS, ModelFactory
 from .pipeline import Pipeline
 from .storage import Store
 
@@ -21,8 +21,8 @@ def build(args) -> tuple:
     settings = load_settings(llm_mode=getattr(args, "mode", None), db_path=getattr(args, "db", None),
                              model_id=getattr(args, "model", None))
     store = Store(settings.db_path)
-    client = ChatClient(settings, simulate=parse_simulate(getattr(args, "simulate", None)))
-    return settings, store, Pipeline(settings, store, client=client)
+    factory = ModelFactory(simulate=parse_simulate(getattr(args, "simulate", None)))
+    return settings, store, Pipeline(settings, store, model_factory=factory)
 
 
 def cmd_process(args) -> int:
