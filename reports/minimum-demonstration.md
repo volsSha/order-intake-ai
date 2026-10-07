@@ -1,6 +1,6 @@
 # Minimum demonstration — check results
 
-Generated 2026-10-07T18:29:09+00:00 by `uv run order-intake check` · model `openai/gpt-6-luna` · LLM mode `replay`.
+Generated 2026-10-07T23:12:56+00:00 by `uv run order-intake check` · model `openai/gpt-6-luna` · LLM mode `replay`.
 Expected values come from `data/reference/expected.json` (written and verified independently of the app); observed values come from a fresh database built by the real pipeline.
 
 **Overall: PASS**
@@ -34,7 +34,7 @@ Expected values come from `data/reference/expected.json` (written and verified i
 | Check | Expected | Observed | Result |
 |---|---|---|---|
 | R1 simulated model outage -> failed, nothing invented | failed MODEL_UNAVAILABLE | failed MODEL_UNAVAILABLE: Simulated failure: model unavailable (no  | PASS |
-| R5 simulated invalid output -> failed after one retry | failed INVALID_MODEL_OUTPUT | failed INVALID_MODEL_OUTPUT: Model returned invalid submit_order_dr | PASS |
+| R5 simulated invalid output -> failed after one retry | failed INVALID_MODEL_OUTPUT | failed INVALID_MODEL_OUTPUT: Model returned invalid output twice: E | PASS |
 | R2 unaffected by other failures | needs_clarification | needs_clarification | PASS |
 
 ## Case details
@@ -61,7 +61,7 @@ Calculation: 'Moon adapter' matches no SKU or catalog description; no price can 
 | clarification draft saved | non-empty | Hello,
 
 Thank you for order O2. Before we prepare it, please confirm:
-- Moon ada | PASS |
+- “Moon ad | PASS |
 
 ### REF-3 · R3 · Ambiguous quantity is flagged, not guessed — PASS
 
@@ -76,7 +76,7 @@ Calculation: 'two boxes' gives no item count; 'the usual cable' matches CAB-1 an
 | clarification draft saved | non-empty | Hello,
 
 Thank you for order O3. Before we prepare it, please confirm:
-- Which ca | PASS |
+- “usual c | PASS |
 
 ### REF-4 · R4 · Reprocessing the duplicate creates no second order — PASS
 

@@ -2,12 +2,15 @@ import hashlib
 import json
 import re
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 from dotenv import dotenv_values
 
-from order_intake.config import ROOT
+from order_intake.config import ROOT, load_settings
+from order_intake.evals.check import run_checks
+from order_intake.llm.replay import ModelFactory
 
 REPLAY_KEYS = {"format_version", "replay_key", "request_id", "step", "recorded_at", "provider", "provider_model",
                "latency_ms", "request", "response"}
@@ -119,8 +122,7 @@ def test_env_file_is_not_tracked():
 @pytest.mark.integration
 def test_replay_files_parse_and_have_the_recorded_keys():
     files = sorted((ROOT / "replay").rglob("*.json"))
-    if not files:
-        pytest.skip("no replay recordings in the repository")
+    assert files, "no replay recordings in the repository"
     for path in files:
         record = json.loads(path.read_text(encoding="utf-8"))
         name = str(path.relative_to(ROOT))
@@ -148,3 +150,20 @@ def test_modified_starter_file_fails_checksum(tmp_path: Path):
     assert checksum_mismatches(tmp_path / "SHA256SUMS") == []
     (tmp_path / "orders" / "a.md").write_text("edited")
     assert checksum_mismatches(tmp_path / "SHA256SUMS") == ["tasks/orders/a.md"]
+
+
+@pytest.mark.integration
+def test_every_extract_recording_is_read_by_a_full_replay_run(tmp_path):
+    factories: list[ModelFactory] = []
+
+    def tracking_factory(**kwargs):
+        factories.append(ModelFactory(**kwargs))
+        return factories[-1]
+
+    settings = replace(load_settings(llm_mode="replay"), db_path=tmp_path / "x.db", openrouter_api_key=None,
+                       openai_api_key=None)
+    assert run_checks(settings, tmp_path, model_factory=tracking_factory)["passed"]
+    read = {f.resolve() for factory in factories for f in factory.replay_files}
+    recorded = {f.resolve() for f in (ROOT / "replay" / "extract").rglob("*.json")}
+    orphans = sorted(str(f.relative_to(ROOT)) for f in recorded - read)
+    assert not orphans, f"replay files no run reads: {orphans}"

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-07T18:29:09+00:00",
+  "generated_at": "2026-10-07T23:12:56+00:00",
   "model_id": "openai/gpt-6-luna",
   "llm_mode": "replay",
   "processing": [
@@ -149,7 +149,7 @@
         {
           "name": "clarification draft saved",
           "expected": "non-empty",
-          "observed": "Hello,\n\nThank you for order O2. Before we prepare it, please confirm:\n- Moon ada",
+          "observed": "Hello,\n\nThank you for order O2. Before we prepare it, please confirm:\n- \u201cMoon ad",
           "passed": true
         }
       ],
@@ -204,7 +204,7 @@
         {
           "name": "clarification draft saved",
           "expected": "non-empty",
-          "observed": "Hello,\n\nThank you for order O3. Before we prepare it, please confirm:\n- Which ca",
+          "observed": "Hello,\n\nThank you for order O3. Before we prepare it, please confirm:\n- \u201cusual c",
           "passed": true
         }
       ],
@@ -682,7 +682,7 @@
     {
       "name": "R5 simulated invalid output -> failed after one retry",
       "expected": "failed INVALID_MODEL_OUTPUT",
-      "observed": "failed INVALID_MODEL_OUTPUT: Model returned invalid submit_order_dr",
+      "observed": "failed INVALID_MODEL_OUTPUT: Model returned invalid output twice: E",
       "passed": true
     },
     {
