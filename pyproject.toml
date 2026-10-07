@@ -1,0 +1,39 @@
+[project]
+name = "order-intake"
+version = "0.1.0"
+description = "AI order intake and exception handling platform (Junior AI Engineer take-home, alternative A)"
+authors = [
+    { name = "blados", email = "himpolink@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.142.2",
+    "jinja2>=3.1.6",
+    "openai>=3.26.0",
+    "pillow>=12.3.0",
+    "pydantic>=2.13.5",
+    "python-dotenv>=1.2.4",
+    "python-multipart>=0.0.32",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[project.scripts]
+order-intake = "order_intake.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.11.2,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+    "ruff>=0.16.10",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
