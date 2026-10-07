@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block title %}{{ req.request_id }} · Order intake{% endblock %}
+{% block content %}
+<p class="small"><a href="/queue">← Queue</a></p>
+<h1>{{ req.request_id }} <span class="badge s-{{ req.status }}">{{ req.status|status_label }}</span>
+  <span class="muted small">order {{ req.order_ref or '—' }}</span></h1>
+{% if error %}<div class="error">{{ error }}</div>{% endif %}
+{% if req.status_reason %}<p class="small"><strong>Reason:</strong> {{ req.status_reason }}
+  {% if req.related_request_id %}— see <a href="/requests/{{ req.related_request_id }}">{{ req.related_request_id }}</a>{% endif %}</p>{% endif %}
+
+<div class="grid two">
+  <section class="panel">
+    <h2>Original request</h2>
+    <pre>{{ req.raw_text }}</pre>
+    {% if req.attachment_path %}
+      <h3>Attachment</h3>
+      <img class="attachment" src="/attachments/{{ req.attachment_path.split('/')[-1] }}" alt="Request attachment">
+    {% endif %}
+    <p class="muted small">Source {{ req.source_path }} · sha256 {{ req.content_hash[:12] }} · first seen {{ req.first_seen_at }}</p>
+  </section>
+
+  <section class="panel" id="current">
+    {% if current %}
+      <h2>Current proposal · v{{ current.version }} <span class="muted small">by {{ current.author }} · {{ current.created_at }}</span></h2>
+      {% if current.result.lines %}
+      <div class="scroll"><table>
+        <tr><th>#</th><th>Request wording</th><th>SKU</th><th class="num">Qty</th><th class="num">Unit</th><th class="num">Subtotal</th><th class="num">Discount</th><th class="num">Line total</th></tr>
+        {% for l in current.result.lines %}
+        <tr>
+          <td>{{ l.index + 1 }}</td>
+          <td class="small">{{ l.product_text or '—' }}{% if l.quantity_text %}<br><span class="muted">qty: “{{ l.quantity_text }}”</span>{% endif %}</td>
+          <td>{{ l.sku or '—' }}{% if l.name %}<br><span class="muted small">{{ l.name }}</span>{% endif %}</td>
+          <td class="num">{{ l.quantity if l.quantity is not none else '—' }}</td>
+          <td class="num">{{ l.unit_cents|money if l.unit_cents is defined else '—' }}</td>
+          <td class="num">{{ l.subtotal_cents|money if l.subtotal_cents is defined else '—' }}</td>
+          <td class="num">{{ l.discount_cents|money if l.discount_cents is defined else '—' }}</td>
+          <td class="num">{{ l.total_cents|money if l.total_cents is defined else '—' }}</td>
+        </tr>
+        {% endfor %}
+        <tr><th colspan="7" class="num">Order total</th><th class="num">{{ current.order_total_cents|money }}</th></tr>
+      </table></div>
+      {% endif %}
+
+      <h3>Checks</h3>
+      {% for f in current.result.findings %}
+        <div class="finding {{ f.severity }}"><code>{{ f.code }}</code> {{ f.message }}
+          <span class="muted small">· {{ f.severity }} · raised by {{ f.source }}{% if f.line is not none %} · line {{ f.line + 1 }}{% endif %}</span></div>
+      {% else %}
+        <p class="small">All checks passed: SKUs exist and came from the catalog lookup, wording matches one product, quantities are stated item counts, prices computed from the catalog.</p>
+      {% endfor %}
+
+      {% if current.clarification %}
+        <h3>Clarification draft <span class="muted small">(not sent)</span></h3>
+        <pre>{{ current.clarification }}</pre>
+      {% endif %}
+      {% if current.result.model_notes %}<h3>Model notes</h3><p class="small">{{ current.result.model_notes }}</p>{% endif %}
+      {% if current.note %}<h3>Reviewer note</h3><p class="small">{{ current.note }}</p>{% endif %}
+
+      {% if current.status == 'ready_for_review' and can_edit %}
+      <form method="post" action="/requests/{{ req.request_id }}/approve" style="margin-top:12px">
+        <input name="reviewer" placeholder="Reviewer name" value="reviewer" size="12">
+        <input name="note" placeholder="Approval note (optional)" size="30">
+        <button class="primary approve" type="submit">Approve v{{ current.version }}</button>
+      </form>
+      {% elif current.status == 'approved' %}
+        <p class="small"><span class="badge s-approved">Approved</span> v{{ current.version }} was approved by a person.</p>
+      {% endif %}
+    {% else %}
+      <h2>No proposal</h2>
+      <p class="small">{% if req.status == 'duplicate' %}This request repeats an earlier one, so no new draft was created.
+        {% elif req.status == 'failed' %}Processing failed; nothing was invented. Fix the input or retry from the dashboard.
+        {% else %}Not processed yet.{% endif %}</p>
+    {% endif %}
+  </section>
+</div>
+
+{% if model_version and current and current.version != model_version.version %}
+<section class="panel">
+  <h2>Model proposal vs current version</h2>
+  <div class="scroll"><table>
+    <tr><th>#</th><th>Model SKU</th><th class="num">Model qty</th><th class="num">Model total</th><th>Current SKU</th><th class="num">Current qty</th><th class="num">Current total</th></tr>
+    {% set n = [model_version.result.lines|length, current.result.lines|length]|max %}
+    {% for i in range(n) %}
+      {% set m = model_version.result.lines[i] if i < model_version.result.lines|length else {} %}
+      {% set c = current.result.lines[i] if i < current.result.lines|length else {} %}
+      <tr>
+        <td>{{ i + 1 }}</td>
+        <td class="{{ 'changed' if m.get('sku') != c.get('sku') }}">{{ m.get('sku') or '—' }}</td>
+        <td class="num {{ 'changed' if m.get('quantity') != c.get('quantity') }}">{{ m.get('quantity') if m.get('quantity') is not none else '—' }}</td>
+        <td class="num">{{ m.get('total_cents')|money }}</td>
+        <td class="{{ 'changed' if m.get('sku') != c.get('sku') }}">{{ c.get('sku') or '—' }}</td>
+        <td class="num {{ 'changed' if m.get('quantity') != c.get('quantity') }}">{{ c.get('quantity') if c.get('quantity') is not none else '—' }}</td>
+        <td class="num">{{ c.get('total_cents')|money }}</td>
+      </tr>
+    {% endfor %}
+    <tr><th colspan="3" class="num">Model order total</th><td class="num">{{ model_version.order_total_cents|money }}</td>
+        <th colspan="2" class="num">Current order total</th><td class="num">{{ current.order_total_cents|money }}</td></tr>
+  </table></div>
+  <p class="muted small">Model status: {{ model_version.status|status_label }} · findings: {{ model_version.result.findings|map(attribute='code')|join(', ') or 'none' }}</p>
+</section>
+{% endif %}
+
+{% if can_edit %}
+<section class="panel">
+  <h2>Correct the proposal</h2>
+  <p class="small muted">Saving creates a new version, reruns every check and keeps the earlier versions. A correction after approval needs a new approval.</p>
+  <form method="post" action="/requests/{{ req.request_id }}/correct">
+    <table>
+      <tr><th>#</th><th>SKU</th><th>Quantity (items)</th><th>Remove</th></tr>
+      {% set lines = current.result.lines if current else [] %}
+      {% for l in lines %}
+      <tr>
+        <td>{{ loop.index }}<input type="hidden" name="text_{{ loop.index0 }}" value="{{ l.product_text }}"></td>
+        <td><select name="sku_{{ loop.index0 }}"><option value="">— choose —</option>
+          {% for item in catalog %}<option value="{{ item.sku }}" {{ 'selected' if item.sku == l.sku }}>{{ item.sku }} · {{ item.name }} · {{ item.unit_cents|money }}</option>{% endfor %}
+        </select>{% if l.product_text %}<br><span class="muted small">request: “{{ l.product_text }}”</span>{% endif %}</td>
+        <td><input type="number" min="1" step="1" name="qty_{{ loop.index0 }}" value="{{ l.quantity if l.quantity is not none else '' }}" style="width:90px"></td>
+        <td><input type="checkbox" name="remove_{{ loop.index0 }}" value="1"></td>
+      </tr>
+      {% endfor %}
+      <tr>
+        <td>+</td>
+        <td><select name="sku_new"><option value="">— add a line —</option>
+          {% for item in catalog %}<option value="{{ item.sku }}">{{ item.sku }} · {{ item.name }} · {{ item.unit_cents|money }}</option>{% endfor %}
+        </select></td>
+        <td><input type="number" min="1" step="1" name="qty_new" style="width:90px"></td><td></td>
+      </tr>
+    </table>
+    <p><textarea name="note" rows="2" placeholder="Why are you changing this? (kept in history)"></textarea></p>
+    <input name="reviewer" placeholder="Reviewer name" value="reviewer" size="12">
+    <button class="primary" type="submit">Save correction and revalidate</button>
+  </form>
+</section>
+{% endif %}
+
+<div class="grid two">
+  <section class="panel">
+    <h2>Catalog lookups</h2>
+    {% for t in tools if t.name == 'search_catalog' %}
+      <p class="small"><strong>step {{ t.step }}</strong> search “{{ t.arguments.query if t.arguments is mapping else t.arguments }}” →
+        {% if t.result.results %}{% for r in t.result.results %}{{ r.sku }} <span class="muted">({{ r.match }}{% if r.score %} {{ r.score }}{% endif %})</span>{% if not loop.last %}, {% endif %}{% endfor %}
+        {% else %}<span class="muted">{{ t.result.note or t.result.error }}</span>{% endif %}</p>
+    {% else %}<p class="muted small">No lookups recorded.</p>{% endfor %}
+    {% for t in tools if t.name == 'submit_order_draft' %}
+      <details><summary class="small">Raw submit_order_draft arguments (step {{ t.step }})</summary><pre>{{ t.arguments|pretty }}</pre>
+        <p class="small muted">Tool reply: {{ t.result|tojson }}</p></details>
+    {% endfor %}
+  </section>
+
+  <section class="panel">
+    <h2>Model calls</h2>
+    {% if calls %}
+    <div class="scroll"><table class="small">
+      <tr><th>Step</th><th>Source</th><th>Model</th><th class="num">ms</th><th class="num">Tokens</th><th>Record</th></tr>
+      {% for c in calls %}
+      <tr><td>{{ c.step }}</td><td><span class="badge src-{{ c.source }}">{{ c.source }}</span></td><td>{{ c.model }}</td>
+        <td class="num">{{ c.latency_ms or '' }}</td><td class="num">{{ (c.usage or {}).get('total_tokens', '') }}</td>
+        <td>{{ c.replay_file or '' }}{% if c.error %}<br><span style="color:var(--bad)">{{ c.error }}</span>{% endif %}</td></tr>
+      {% endfor %}
+    </table></div>
+    <p class="muted small"><strong>live</strong> = new API call (recorded) · <strong>replay</strong> = saved real response · <strong>simulated</strong> = labelled test failure, no API call.</p>
+    {% else %}<p class="muted small">The model was not called for this request.</p>{% endif %}
+  </section>
+</div>
+
+<section class="panel">
+  <h2>History</h2>
+  <table class="small">
+    <tr><th>Version</th><th>Author</th><th>When</th><th>Status</th><th class="num">Total</th><th>Lines</th><th>Note</th></tr>
+    {% for p in proposals %}
+    <tr><td>v{{ p.version }}</td><td>{{ p.author }}</td><td>{{ p.created_at }}</td>
+      <td><span class="badge s-{{ p.status }}">{{ p.status|status_label }}</span></td><td class="num">{{ p.order_total_cents|money }}</td>
+      <td>{% for l in p.result.lines %}{{ l.sku or '?' }}×{{ l.quantity if l.quantity is not none else '?' }}{% if not loop.last %}, {% endif %}{% endfor %}</td>
+      <td>{{ p.note or '' }}</td></tr>
+    {% endfor %}
+  </table>
+  <h3>Audit log</h3>
+  <table class="small">
+    {% for e in audit %}<tr><td>{{ e.at }}</td><td>{{ e.actor }}</td><td>{{ e.action }}</td><td><code>{{ e.detail|tojson }}</code></td></tr>{% endfor %}
+  </table>
+</section>
+{% endblock %}

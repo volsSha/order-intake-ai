@@ -1,0 +1,13 @@
+{% for r in rows %}
+<tr>
+  <td><a href="/requests/{{ r.request_id }}">{{ r.request_id }}</a></td>
+  <td>{{ r.order_ref or '—' }}</td>
+  <td><span class="badge s-{{ r.status }}">{{ r.status|status_label }}</span></td>
+  <td class="small">{{ r.status_reason or '' }}{% if r.related_request_id %} → <a href="/requests/{{ r.related_request_id }}">{{ r.related_request_id }}</a>{% endif %}</td>
+  <td class="num">{{ r.total|money }}</td>
+  <td class="small">{% if r.version %}v{{ r.version }} · {{ r.author }}{% else %}—{% endif %}</td>
+  <td>{% for s in r.sources %}<span class="badge src-{{ s }}">{{ s }}</span> {% else %}<span class="muted small">none</span>{% endfor %}</td>
+</tr>
+{% else %}
+<tr><td colspan="7" class="muted">No requests with this status.</td></tr>
+{% endfor %}

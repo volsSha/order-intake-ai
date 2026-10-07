@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Queue · Order intake{% endblock %}
+{% block content %}
+<h1>Operations queue</h1>
+<div class="panel">
+  <div class="filters" id="filters">
+    <button class="{{ 'on' if not status }}" hx-get="/queue" hx-target="#rows" hx-push-url="true"
+            onclick="document.querySelectorAll('#filters button').forEach(b=>b.classList.remove('on'));this.classList.add('on')">All</button>
+    {% for s in statuses %}
+    <button class="{{ 'on' if status == s }}" hx-get="/queue?status={{ s }}" hx-target="#rows" hx-push-url="true"
+            onclick="document.querySelectorAll('#filters button').forEach(b=>b.classList.remove('on'));this.classList.add('on')">
+      {{ s|status_label }} ({{ counts.get(s, 0) }})</button>
+    {% endfor %}
+  </div>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Request</th><th>Order ref</th><th>Status</th><th>Reason</th><th class="num">Total</th><th>Version</th><th>Model calls</th></tr></thead>
+    <tbody id="rows">{% include "_queue_rows.html" %}</tbody>
+  </table>
+  </div>
+</div>
+{% endblock %}

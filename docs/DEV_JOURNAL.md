@@ -51,3 +51,13 @@ Chronological record of how the solution was built with AI assistance: what was 
 **Checks.** 11 pipeline tests with a scripted fake model (`tests/conftest.py`): full batch statuses and order count vs `data/reference/expected.json`, idempotent reprocessing (no new model calls, no new orders), model-unavailable then retry, invalid output after a bounded retry, a model that picks a SKU contradicting the wording, reviewer correction persisted across a reopened database, approval rules.
 
 **Correction.** The first replay run without recordings reported `MODEL_UNAVAILABLE`, which would mislead a reviewer into thinking the API was down. Added a separate `REPLAY_MISSING` code.
+
+## Stage 4 — Review UI (2026-10-07)
+
+**Goal.** Operations queue with status filter; request detail with the original beside the proposal, catalog evidence, failed checks, reviewer correction + revalidation + history; approval; exports.
+
+**Design.** Server-rendered Jinja2 with HTMX only for the queue filter (partial `_queue_rows.html`, URL pushed so filters are linkable). htmx 2.0.4 is vendored in `static/` so the app runs offline. Dashboard shows status counts, exception reasons with example links, duplicates, model-call sources (live/replay/simulated), and a data-backed improvement suggestion. Optional enhancements included: model-vs-current comparison table, approved-order export (JSON + CSV), image attachment display.
+
+**Checks.** 6 web tests (`tests/test_web.py`): filter returns only matching rows as a partial, detail shows request, totals and lookups, full correction → approve → export flow through HTTP forms, invalid correction stays visible as `needs_clarification`, attachment route blocks path traversal.
+
+**Correction.** The first filter test asserted that "R1" must not appear in the duplicate-only rows, but the duplicate row correctly links to the request it repeats (R1). The test was wrong, not the app; changed it to count rows.

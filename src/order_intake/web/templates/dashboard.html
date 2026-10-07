@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Intake overview</h1>
+<div class="tiles">
+  <a class="tile" href="/queue"><div class="n">{{ total }}</div><div class="l">Requests received</div></a>
+  <div class="tile"><div class="n">{{ orders }}</div><div class="l">Orders (distinct references)</div></div>
+  <a class="tile" href="/queue?status=ready_for_review"><div class="n">{{ counts.get('ready_for_review', 0) }}</div><div class="l">Ready for review</div></a>
+  <a class="tile" href="/queue?status=needs_clarification"><div class="n">{{ counts.get('needs_clarification', 0) }}</div><div class="l">Need clarification</div></a>
+  <a class="tile" href="/queue?status=approved"><div class="n">{{ counts.get('approved', 0) }}</div><div class="l">Approved by a person</div></a>
+  <a class="tile" href="/queue?status=duplicate"><div class="n">{{ counts.get('duplicate', 0) }}</div><div class="l">Duplicates (not new orders)</div></a>
+  <a class="tile" href="/queue?status=failed"><div class="n">{{ counts.get('failed', 0) }}</div><div class="l">Failed processing</div></a>
+</div>
+
+<div class="grid two">
+  <div class="panel">
+    <h2>Exception reasons</h2>
+    {% if reasons %}
+    <table>
+      <tr><th>Reason</th><th class="num">Requests</th><th>Examples</th></tr>
+      {% for code, ids in reasons %}
+      <tr><td>{{ code|label }} <span class="muted small">{{ code }}</span></td><td class="num">{{ ids|length }}</td>
+          <td>{% for i in ids %}<a href="/requests/{{ i }}">{{ i }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</td></tr>
+      {% endfor %}
+    </table>
+    {% else %}<p class="muted">No exceptions.</p>{% endif %}
+
+    <h3>Duplicates</h3>
+    {% if duplicates %}
+    <ul>{% for d in duplicates %}<li><a href="/requests/{{ d.request_id }}">{{ d.request_id }}</a> repeats
+      <a href="/requests/{{ d.related_request_id }}">{{ d.related_request_id }}</a> (order {{ d.order_ref }}) — no new draft</li>{% endfor %}</ul>
+    {% else %}<p class="muted">None.</p>{% endif %}
+  </div>
+
+  <div class="panel">
+    <h2>Suggested intake improvement</h2>
+    {% if improvement %}
+      {% set code, ids, text = improvement %}
+      <p>{{ text }}</p>
+      <p class="muted small">Based on {{ ids|length }} request(s) with <code>{{ code }}</code>:
+        {% for i in ids %}<a href="/requests/{{ i }}">{{ i }}</a>{% if not loop.last %}, {% endif %}{% endfor %}.
+        See <code>docs/INSIGHTS.md</code> for the write-up.</p>
+    {% else %}<p class="muted">Process requests to see a data-backed suggestion.</p>{% endif %}
+
+    <h3>Draft vs reviewed</h3>
+    <p class="small">“Ready for review” means the draft passed every code check. Only “Approved” means a person reviewed it.
+      Totals are computed from the catalog in code, never by the model.</p>
+
+    <h3>Model calls</h3>
+    <dl class="kv">
+      <dt>Model</dt><dd>{{ settings.model_id }} (mode: {{ settings.llm_mode }})</dd>
+      <dt>Calls by source</dt><dd>{% for s, n in sources.items() %}<span class="badge src-{{ s }}">{{ s }} {{ n }}</span> {% else %}none{% endfor %}</dd>
+      <dt>Tokens (recorded)</dt><dd>{{ tokens }}</dd>
+      {% if cost %}<dt>Cost (recorded)</dt><dd>${{ '%.4f'|format(cost) }}</dd>{% endif %}
+    </dl>
+    <form method="post" action="/process" style="margin-top:12px">
+      <label class="small"><input type="checkbox" name="retry_failed" value="true"> retry failed</label>
+      <button class="primary" type="submit">Process new requests</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
