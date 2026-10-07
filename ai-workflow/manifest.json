@@ -65,7 +65,7 @@
     "tool_and_mcp_settings": {
       "status": "used",
       "files": [
-        "src/order_intake/schemas.py"
+        "src/order_intake/llm/schemas.py"
       ],
       "notes": "Application tools: search_catalog and submit_order_draft, strict JSON schema. Development: Claude Code built-in tools only (Bash, Read, Write, Edit, AskUserQuestion). The MCP connectors present in the session were not used."
     },
@@ -193,8 +193,8 @@
       "name": "Application tool definitions",
       "category": "tool_and_mcp_settings",
       "purpose": "search_catalog and submit_order_draft, strict JSON schemas generated from Pydantic",
-      "original_path_or_scope": "src/order_intake/schemas.py",
-      "saved_path": "src/order_intake/schemas.py",
+      "original_path_or_scope": "src/order_intake/llm/schemas.py",
+      "saved_path": "src/order_intake/llm/schemas.py",
       "version_or_commit": "c4df6b0",
       "used_during": "stage 3 onward",
       "status": "used",

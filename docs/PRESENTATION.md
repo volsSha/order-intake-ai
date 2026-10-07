@@ -1,4 +1,4 @@
-# Walkthrough: AI Order Intake (about 4 minutes)
+# Walkthrough: AI Order Intake (about 5 minutes)
 
 A written walkthrough with one section per slide. Run `uv run order-intake serve` after `uv run order-intake process` to follow along in the UI. No API key is needed.
 
@@ -41,8 +41,16 @@ A written walkthrough with one section per slide. Run `uv run order-intake serve
 - `uv run order-intake check` rebuilds everything on a fresh DB from **recorded real model responses** and compares with 12 expected results written by hand → **17/17 PASS**. It also verifies:
   - reprocessing creates nothing new;
   - a correction survives a restart.
-- 58 unit/integration tests; ruff clean.
-- Every model call is labelled `live`, `replay` or `simulated` in the UI and the report.
+- 232 tests, with no network. Property-based pricing tests, and a secret scan of every tracked file. Coverage is 97% of deterministic code. CI runs everything on every push with no API key.
+- Every model call is labelled `live`, `replay` or `simulated` in the UI and the reports.
+- The agent runs on **PydanticAI**: typed tools, a request cap and one repair. A custom wrapper records every real response, so the whole app replays without a key.
+
+## 4b. An independent judge
+
+- `uv run order-intake judge` grades every result with **DeepSeek**, a different model family from the pipeline. The judge is blind to the expected answers, and its evidence quotes are checked in code.
+- Deterministic trajectory checks catch an agent that goes off track: too many calls, a submit without a search, repeated searches.
+- Calibration on seeded defects: **6/6 caught by the judge alone, 0/9 false fails, kappa 1.00**. One defect, a clarification claiming an unknown product is "out of stock", is caught *only* by the judge.
+- Three samples per case and a committed baseline. A later prompt or model change is compared criterion by criterion, so drift shows up, not noise.
 
 ## 5. A finding from checking real output
 
@@ -50,4 +58,8 @@ All checks passed on the first live run. Reading the actual output still found a
 
 ## 6. Insight and next step
 
-4 of the 5 clarifications come from free-text wording: a generic product name or a non-item quantity. **A structured order form with SKU and item-count fields** removes both causes, and the image-form request (R11) already went through without a clarification. Next: measure the same breakdown on real traffic, and add explicit order amendments.
+- 4 of the 5 clarifications come from free-text wording. **A structured order form with SKU and item-count fields** removes both causes.
+- The judge found a third example on an unlabelled request. On "a dozen of the two-metre USB-C cables" the model was right, but code's matcher over-flagged it.
+- Next:
+  - teach the matcher unit spellings and "dozen", then use the baseline to prove nothing else regressed;
+  - measure the exception breakdown on real traffic.

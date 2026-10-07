@@ -180,3 +180,25 @@ def test_every_recording_is_read_by_a_full_offline_run(offline_run, namespace):
         pytest.skip("replay/judge/ has no recordings yet")
     orphans = sorted(str(f.relative_to(ROOT)) for f in recorded - offline_run)
     assert not orphans, f"replay files no run reads: {orphans}"
+
+
+MARKDOWN_LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
+
+
+def relative_links(text: str) -> list[str]:
+    return [t.split("#")[0] for t in MARKDOWN_LINK.findall(text)
+            if t.split("#")[0] and not re.match(r"[a-z]+:", t)]
+
+
+def test_relative_link_parser_skips_urls_and_anchors():
+    text = "[a](docs/X.md) [b](https://x.y) [c](#top) [d](../y.md#part) [e](mailto:a@b.c)"
+    assert relative_links(text) == ["docs/X.md", "../y.md"]
+
+
+def test_every_relative_link_in_docs_resolves():
+    docs = [ROOT / "README.md", *(ROOT / "docs").glob("*.md"), *ROOT.glob("*/README.md"),
+            ROOT / "src" / "order_intake" / "README.md", ROOT / "ai-workflow" / "README.md"]
+    broken = [f"{doc.relative_to(ROOT)} -> {link}" for doc in sorted(set(docs)) if doc.is_file()
+              for link in relative_links(doc.read_text(encoding="utf-8"))
+              if not (doc.parent / link).exists()]
+    assert not broken, broken

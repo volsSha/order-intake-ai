@@ -1,132 +1,84 @@
 # AI Order Intake & Exception Handling
 
-Junior AI Engineer take-home, **alternative A**. The app turns free-text customer order requests into draft orders. It flags unknown products, ambiguous quantities, duplicates and conflicts, and drafts a clarification. Every draft waits for a person to correct and approve it.
+[![CI](https://github.com/volsSha/order-intake-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/volsSha/order-intake-ai/actions/workflows/ci.yml)
 
-A model reads the request and proposes SKUs and quantities by calling a catalog lookup tool. **Code** decides everything else: it checks every proposal, computes prices, discounts and totals, detects duplicates and sets statuses. A draft that passes validation is only `ready_for_review`; it becomes `approved` only when a person approves it.
+Junior AI Engineer take-home, **alternative A**.
 
-```
-12 requests → 9 orders · 5 ready for review · 5 need clarification · 1 duplicate · 1 failed
-17/17 checks PASS on recorded real responses (openai/gpt-6-luna) — reports/minimum-demonstration.md
-```
+The app turns free-text and image customer orders into draft orders, flags what cannot be decided, and drafts a clarification. A person corrects and approves every draft.
 
-## Quick start: no API key needed
+**The model reads, code decides, a person approves.**
+- A PydanticAI agent proposes SKUs and quantities through a catalog-lookup tool.
+- Code validates every proposal and computes all prices and statuses.
+- A separate LLM judge from another model family grades the results offline.
 
-Requires Python 3.12 and [uv](https://docs.astral.sh/uv/) (tested with uv 0.11.2).
+| Result | Value |
+|---|---|
+| Reference checks on recorded real responses | **17/17 PASS** ([report](reports/minimum-demonstration.md)) |
+| Batch of 12 requests | 9 orders: 5 ready for review, 5 need clarification, 1 duplicate, 1 failed |
+| LLM judge on seeded defects | **6/6 caught** by the judge alone; 0/9 false fails on clean cases; kappa 1.00 ([report](reports/judge-report.md)) |
+| Tests | 232, no network; coverage 97% of deterministic code (gate 90%); CI on every push |
+
+## Run it: no API key needed
+
+Requires Python 3.12 and [uv](https://docs.astral.sh/uv/).
 
 ```bash
 git clone https://github.com/volsSha/order-intake-ai.git && cd order-intake-ai
 uv sync
-uv run order-intake check     # rebuild everything from saved real responses, compare with expected results
-uv run order-intake process   # process data/requests/ into var/intake.db (replay mode)
-uv run order-intake serve     # http://127.0.0.1:8000
+uv run order-intake check     # reference checks from recorded real responses
+uv run order-intake judge     # LLM-judge evaluation from recorded judge calls
+uv run order-intake process   # process data/requests/ into var/intake.db
+uv run order-intake serve     # review UI at http://127.0.0.1:8000
 ```
 
-`LLM_MODE` defaults to `replay`. In that mode the app answers every model call from the recorded real responses in `replay/` and never contacts a provider. `check` exits non-zero if any expectation fails.
+Everything runs from the recordings in [`replay/`](replay/). Without a key nothing is sent to a model provider.
 
-Suggested walkthrough in the UI:
-1. **Dashboard:** status counts, exception reasons and the suggested improvement.
-2. **Queue:** filter by status.
-3. **R7** ("10 USB-C cables"): the model correctly marks it as ambiguous. Choose `CAB-1`, save, check that the total is $180.00 (18000 cents, 10% discount), then approve.
-4. **Export** the approved orders as JSON or CSV.
-5. **R10** (an email trying to set the price) and **R11** (an order sent only as an image) are worth opening too.
+Things to try in the UI:
+1. Open **R7** ("10 USB-C cables"). The model flags it as ambiguous. Choose `CAB-1`, save, check that the total is $180.00 (10% bulk discount), approve, then export.
+2. Open **R10**, an email that tries to set the price to 0.
+3. Open **R11**, an order sent only as an image.
 
-## Live mode: real model calls
+## Live mode
 
 ```bash
-cp .env.example .env          # set OPENROUTER_API_KEY (or OPENAI_API_KEY)
+cp .env.example .env    # set OPENROUTER_API_KEY (or OPENAI_API_KEY for the pipeline)
 uv run order-intake process --mode live --db var/live.db
+uv run order-intake judge --mode live --samples 3
 ```
 
-| Variable | Default | Meaning |
-|---|---|---|
-| `OPENROUTER_API_KEY` | – | Preferred provider |
-| `OPENAI_API_KEY` | – | Fallback: OpenAI directly, used when there is no OpenRouter key |
-| `LLM_PROVIDER` | `auto` | `auto` uses OpenRouter, then OpenAI, then none (replay only); can be forced to `openrouter` or `openai` |
-| `MODEL_ID` | `openai/gpt-6-luna` | OpenRouter model ID; for OpenAI direct the `openai/` prefix is removed |
-| `OPENAI_MODEL_ID` | – | Overrides the OpenAI model name |
-| `MODEL_REASONING_EFFORT` | `low` | Reasoning effort |
-| `LLM_MODE` | `replay` | `live` always calls the API and records the response; `replay` never calls it; `auto` replays a recording and calls live only when none exists |
-| `DB_PATH` | `var/intake.db` | SQLite file |
+Settings and their defaults are in [`.env.example`](.env.example). The models are:
+- pipeline: `openai/gpt-6-luna` on OpenRouter, with OpenAI direct as the fallback;
+- judge: `deepseek/deepseek-v4.1-flash` on OpenRouter.
 
-Other model parameters are fixed in `src/order_intake/config.py`: `seed=7`, `max_completion_tokens=4000`, at most 6 model calls per request, a 60 s timeout, and one retry after an invalid output. The temperature is the provider default. Recording all 12 requests cost about **$0.0023** (from OpenRouter's reported usage).
+Recording the full pipeline and the judge costs a few cents.
 
-Labelled simulated failures (no API call): `uv run order-intake process --simulate R1=model_unavailable --simulate R5=invalid_output`.
+## Where to find what
 
-## Architecture
-
-```mermaid
-flowchart LR
-  F[data/requests/*.txt<br/>+ image attachment] --> P[inbox: parse & validate input]
-  P -->|unusable| X[failed]
-  P --> D{same order ref<br/>seen before?}
-  D -->|identical| DUP[duplicate<br/>no model call]
-  D -->|different content| C[needs_clarification<br/>CONFLICTING_ORDER_REF]
-  D -->|new| M[model tool loop<br/>search_catalog → submit_order_draft]
-  M <--> R[(replay/ recordings)]
-  M --> V[validation & pricing in code]
-  V --> Q[ready_for_review / needs_clarification]
-  Q --> UI[review UI: correct → revalidate → approve]
-  UI --> E[export approved JSON/CSV]
-```
-
-| Module | Responsibility |
+| I want to… | Go to |
 |---|---|
-| `inbox.py` | Parses email-style request files and rejects unusable input before any model call |
-| `catalog.py` | Catalog lookup (by SKU, or by description using token overlap), and deterministic detection of ambiguous wording |
-| `llm.py` | OpenAI-SDK client for OpenRouter or OpenAI, with record and replay and simulated failures |
-| `extraction.py` | Tool-calling loop with a step limit and one repair retry |
-| `schemas.py` | Strict JSON-schema tool definitions generated from Pydantic |
-| `validation.py` | All business rules: SKU from a lookup, wording matches exactly one product, quantity stated as items, pricing, statuses, clarification text |
-| `pricing.py` | Integer cents; 10% off lines with at least 10 items, rounded half up |
-| `pipeline.py` | Batch processing, dedupe and conflicts, idempotent reprocessing, corrections, approval |
-| `storage.py` | SQLite: requests, orders (one per order ref), versioned proposals, model and tool calls, audit log |
-| `evaluation.py` | `order-intake check`: runs on a fresh DB and compares with `data/reference/expected.json` |
-| `web/` | FastAPI + Jinja2 + HTMX review UI |
-
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the design decisions and why each one was made.
-
-## Data and assumptions
-
-- `starter/` holds the unmodified starter pack (`starter/SHA256SUMS`). `data/` holds the catalog (copied verbatim), the 4 seed requests and 8 added requests: description match, per-line discount, ambiguous product, vague quantity, conflicting order reference, a prompt-injection attempt, an image-only order and unusable input. [`data/GENERATION.md`](data/GENERATION.md) describes how they were made.
-- **Reference cases:** 12 cases in [`data/reference/expected.json`](data/reference/expected.json), 5 of them marked as the minimum demonstration. They were written by hand before running the app. `uv run python scripts/verify_reference.py` re-checks their arithmetic with `fractions` and does not import the app.
-- **Assumptions** where the rules are silent ([`docs/ASSUMPTIONS.md`](docs/ASSUMPTIONS.md)), always the conservative choice:
-  - the same order reference with different content is a conflict, not a new order;
-  - containers and vague amounts need clarification;
-  - prices written in the email are ignored;
-  - the same SKU on two lines is flagged rather than merged;
-  - a correction after approval needs a new approval.
-
-## Checks
-
-```bash
-uv run pytest            # 58 tests: core rules, pipeline, LLM layer, web
-uv run ruff check .
-uv run order-intake check
-```
-
-The results are in [`reports/minimum-demonstration.md`](reports/minimum-demonstration.md); the expected-vs-observed table is also in `reports/check-results.json`.
+| Understand the design and why | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
+| See the code map | [`src/order_intake/README.md`](src/order_intake/README.md) |
+| See the data, scenarios and expected results | [`data/README.md`](data/README.md), [`docs/ASSUMPTIONS.md`](docs/ASSUMPTIONS.md) |
+| See the check results | [`reports/README.md`](reports/README.md) |
+| Understand the recordings and how to re-record | [`replay/README.md`](replay/README.md) |
+| Read the prompts | [`prompts/README.md`](prompts/README.md) |
+| Run or read the tests | [`tests/README.md`](tests/README.md) |
+| Read the insights and the improvement suggestion | [`docs/INSIGHTS.md`](docs/INSIGHTS.md) |
+| See how AI tools were used | [`docs/LLM_USAGE.md`](docs/LLM_USAGE.md), [`ai-workflow/README.md`](ai-workflow/README.md) |
+| Follow the work stage by stage | [`docs/DEV_JOURNAL.md`](docs/DEV_JOURNAL.md) |
+| Get a 5-minute walkthrough | [`docs/PRESENTATION.md`](docs/PRESENTATION.md) |
+| Check what the brief asked for and where it is | [`docs/SUBMISSION.md`](docs/SUBMISSION.md) |
+| See every doc | [`docs/README.md`](docs/README.md) |
 
 ## Time spent
 
-About **2 hours** of my own time, working with an AI coding assistant (Claude Code). See [`docs/LLM_USAGE.md`](docs/LLM_USAGE.md). The stage-by-stage log is [`docs/DEV_JOURNAL.md`](docs/DEV_JOURNAL.md).
+About **5 hours** of my own time, working with an AI coding assistant (Claude Code with compound-engineering skills). Details in [`docs/LLM_USAGE.md`](docs/LLM_USAGE.md).
 
 ## Known limitations
 
-- 12 requests show the intended behaviour; they are not evidence of accuracy on real email traffic.
-- The rounding rule is never triggered by the supplied catalog, because every price is a multiple of 1000 cents. Unit tests cover it with synthetic prices.
-- Matching by description uses token overlap over a 3-item catalog. A real catalog would need proper search, with code still deciding when wording is ambiguous.
-- Clarifications are drafted but never sent. Customer replies are not linked back to the order.
-- An order cannot be amended. A changed resend with the same reference stays a conflict for a person to resolve.
-- There is one reviewer and no authentication; the reviewer name is free text.
-- A request file whose content changes after processing is skipped and reported rather than reprocessed.
-
-## Repository map
-
-| Path | Content |
-|---|---|
-| `docs/` | Architecture, assumptions, development journal, LLM usage note, insights, presentation, submission notes |
-| `prompts/extract_order.md` | System prompt used by the application |
-| `replay/` | Recorded real model responses, one JSON file per call |
-| `reports/` | Generated check results |
-| `ai-workflow/` | AI development setup: manifest, README and sanitized configuration snapshots |
-| `CLAUDE.md` | Agent instructions for this project |
+- The 12 requests show the intended behaviour; they do not measure accuracy on real email traffic.
+- The rounding rule is never triggered by the supplied catalog. Property-based tests cover it with synthetic prices.
+- The description matcher is conservative. The judge found that code over-flags "a dozen" and "two-metre" on unlabelled case J1 (see [`docs/INSIGHTS.md`](docs/INSIGHTS.md)). This is a known follow-up.
+- Clarifications are drafted, never sent. An order cannot be amended; a changed resend with the same reference stays a conflict for a person.
+- There is one reviewer and no authentication.
+- The judge is an offline evaluation tool. Its verdicts are not shown in the review UI.

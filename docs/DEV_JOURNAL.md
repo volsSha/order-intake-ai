@@ -118,3 +118,65 @@ Plugins were enabled but not used, so they are not copied. Copying user-level co
 2. Error messages went into redirect URLs without encoding. They are now URL-encoded.
 
 `test_rejected_action_shows_full_error_message` was added. 58 tests pass and ruff is clean; `ai-workflow/snapshots` is excluded from ruff because it holds verbatim copies.
+
+## Stage 9: PydanticAI, LLM judge, structure (2026-10-07 to 2026-10-08)
+
+**Request.** The user wanted:
+- the compound-engineering skills used for the work;
+- a cleaner structure and stronger tests;
+- a readable README with indexes;
+- an LLM-as-judge tool that checks the work with another model and detects pipeline drift.
+
+When asked whether a framework would fit better than the hand-written loop, the user chose PydanticAI, plus a DeepSeek judge that does not see the expected answers.
+
+**Process.**
+1. `ce-plan` wrote [`plans/2026-10-07-2318-feat-pydanticai-judge-structure-plan.md`](plans/2026-10-07-2318-feat-pydanticai-judge-structure-plan.md). Five research agents fed it:
+   - repo patterns;
+   - lessons from this journal;
+   - agent-native design;
+   - the PydanticAI 2.54 source, read from an installed copy;
+   - LLM-judge practice.
+
+   A flow analysis added edge cases.
+2. `ce-doc-review` reviewed the plan with five reviewer personas and an independent cross-model pass (Codex): 35 findings, 24 applied. Among them:
+   - the secret scan had to cover every tracked file;
+   - the replay key had to use the logical model id;
+   - the parity requirement could not freeze model-written wording;
+   - the judge needed several samples, so noise is not reported as drift.
+3. `ce-work` ran the units one at a time with fresh subagents. I reviewed, re-tested and committed each one.
+
+**U1, structure.** Packages `domain/`, `llm/`, `evals/`; tests split per module; `ROOT` found from `pyproject.toml` rather than a fixed parent count. 58/58 tests still passed.
+
+**U2, tests.** Added:
+- parametrized boundaries;
+- Hypothesis properties for pricing, checked against an independent `Fraction` calculation;
+- a secret scan of every tracked file;
+- starter checksums;
+- a 90% coverage gate.
+
+**Correction.** The new boundary tables exposed two real validation bugs, pinned first as strict xfails:
+- "twenty-one" was read as {20, 1}, so quantity 1 passed;
+- the container check trusted the model's unit label, so "2 boxes" labelled `item` was priced.
+
+Both were fixed in code (commit "fix: block container words in code…").
+
+**U3, PydanticAI.** A proof slice on `FunctionModel` came before any pipeline wiring.
+
+**Correction.** The probe showed that PydanticAI counts retries separately for text replies, unknown tools and invalid output. An unknown tool name looped to the step limit. A `before_model_request` hook now enforces the single repair the rules allow. Replay became a `WrapperModel` keyed on a canonical request, and the old recordings were deleted.
+
+**U4, re-recording.** All 12 requests were recorded live again. A per-request comparison with the stage-7 database found 0 differences in status, lines, prices, totals and finding codes. Only model-written clarification wording changed (R2, R3), and both versions are correct. An orphan test was added and checked red by planting an unread file.
+
+**U5 and U6, judge.**
+- Trajectory and reference evaluators were written test-first.
+- The DeepSeek rubric judge returns per-criterion verdicts with verbatim quotes, and code checks the quotes.
+- There are 6 seeded defects and 3 unlabelled requests (J1–J3).
+- Live run: judge-only detection 6/6, 0/9 false fails, kappa 1.00, 270/270 agreeing sample pairs.
+- The replay run reproduces the live verdicts exactly, and the baseline is committed.
+
+**Finding.** On J1 the judge failed the pipeline for over-flagging "a dozen of the two-metre USB-C cables". The model was right; code's matcher and number reader were too narrow. Per the plan this is recorded, not silently fixed; see [`INSIGHTS.md`](INSIGHTS.md).
+
+**U7, CI.** GitHub Actions runs lint, tests with the coverage gate, `check` and `judge` with no secrets and read-only permissions.
+
+**Correction.** The first run failed because `astral-sh/setup-uv@v10` has no major tag. The actions are now pinned to exact releases, and CI is green.
+
+**U8, docs.** The README became a short entry page. Every folder has an index README. The architecture, LLM usage, insights, presentation and submission docs and the AI-workflow records were updated.

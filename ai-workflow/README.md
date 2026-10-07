@@ -29,7 +29,7 @@ The client is the `openai` Python SDK 3.26.0. All of these settings are in `src/
 |---|---|---|
 | Project agent instructions | [`CLAUDE.md`](../CLAUDE.md) | project, normal location |
 | Application system prompt | [`prompts/extract_order.md`](../prompts/extract_order.md) (v1 `eceda71`, v2 `bcb1c4c`) | project |
-| Application tools | [`src/order_intake/schemas.py`](../src/order_intake/schemas.py) | project |
+| Application tools | [`src/order_intake/llm/schemas.py`](../src/order_intake/llm/schemas.py) | project |
 | Application model settings | [`src/order_intake/config.py`](../src/order_intake/config.py), [`.env.example`](../.env.example) | project |
 | Data-generation skill (supplied) | [`starter/skills/generate-assignment-data/SKILL.md`](../starter/skills/generate-assignment-data/SKILL.md) | starter pack, followed as guidance |
 | FastAPI skill (full folder: `SKILL.md`, `assets/`, `references/`, `scripts/`) | [`snapshots/skills/fastapi/`](snapshots/skills/fastapi/) | user, copied as is |

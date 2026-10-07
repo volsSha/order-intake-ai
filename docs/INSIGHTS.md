@@ -36,3 +36,18 @@ The second, smaller change: **allow an explicit amendment** (for example "Amends
 
 - 12 hand-made requests show the categories; they are not a measured distribution. Before investing, I would take the same breakdown over a real month of requests. The dashboard computes it automatically from the reason codes.
 - With a 3-item catalog, ambiguity is concentrated in one product family (the two USB-C cables). A larger catalog would likely make wording-based ambiguity more frequent, not less.
+
+## What the LLM judge added
+
+Source: [`reports/judge-report.md`](../reports/judge-report.md) (DeepSeek judge, 3 samples per case, blind to expected answers).
+
+- **It catches what deterministic checks cannot.** Of the 6 seeded defects, deterministic checks caught 5. The sixth was a clarification claiming the unknown "Moon adapter" is out of stock. It has a correct status, lines and finding codes, and only the judge failed it, quoting "The Moon adapter is out of stock this week". Judge-only detection was 6/6, with 0 false fails on the 9 clean cases and kappa 1.00. All 3 samples agreed on all 270 sample pairs, so the noise floor on this corpus is zero.
+- **It found a real over-flagging gap on an unlabelled request.** J1 asks for "a dozen of the two-metre USB-C cables".
+  - The model proposed the right answer: CAB-2 × 12.
+  - Code then blocked it. The description matcher does not equate "two-metre" with "2 m", so CAB-1 and CAB-2 tie (`AMBIGUOUS_PRODUCT`). The number reader does not know "dozen" (`QUANTITY_NOT_IN_SOURCE`).
+  - The judge failed ambiguity handling and clarification quality, all three samples agreeing, with the rationale "the two-metre cable is unambiguous … a dozen is a clear count".
+
+  The reference set could not have shown this, because J1 has no expected answer. The conservative checks still never guess. The cost is an unnecessary clarification email.
+- **Follow-up, not done in this stage.** Teach the matcher unit spellings ("two-metre", "2-metre", "2 m") and the number reader "dozen". Then re-record J1 and run `order-intake judge`: the baseline comparison should show J1 move from fail to pass with no regression elsewhere. That loop is the reason the baseline exists.
+
+The improvement suggestion above stands. A structured order form with SKU and item-count fields also removes this class of wording problem, because a form never says "two-metre".

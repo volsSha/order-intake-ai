@@ -5,8 +5,11 @@
 | Where | Tool / model | Settings |
 |---|---|---|
 | Development | Claude Code 2.1.292 (CLI, WSL2) with Claude Opus 5.5 (`claude-opus-5-5`) | Effort `high`, permission mode `auto`, project instructions in [`CLAUDE.md`](../CLAUDE.md). Sanitized user-level configuration in [`ai-workflow/`](../ai-workflow/README.md) |
-| Application | `openai/gpt-6-luna` via OpenRouter, with OpenAI direct as the fallback | `reasoning.effort=low`, `seed=7`, `max_completion_tokens=4000`, `tool_choice=required`, strict tool schemas, provider-default temperature. Prompt: [`prompts/extract_order.md`](../prompts/extract_order.md) |
-| Application SDK | `openai` Python SDK 3.26.0 | `base_url` switched between OpenRouter and OpenAI |
+| Development skills | compound-engineering 3.22.4: `ce-plan`, `ce-doc-review`, `ce-work`, `ce-code-review`, `ce-compound`; user skill `fastapi` | Stage 9 planning, plan review, unit-by-unit execution, code review, captured learnings. Copies in [`ai-workflow/snapshots/skills/`](../ai-workflow/snapshots/skills/) |
+| Development cross-check | OpenAI Codex CLI, as an independent reviewer inside `ce-doc-review` | Read-only; it reviewed the stage-9 plan |
+| Application, extraction | `openai/gpt-6-luna` via OpenRouter, with OpenAI direct as the fallback | `reasoning.effort=low`, `seed=7`, max 4000 output tokens, strict tool schemas, provider-default temperature, at most 6 requests and one repair. Prompt: [`prompts/extract_order.md`](../prompts/extract_order.md) |
+| Application, judge | `deepseek/deepseek-v4.1-flash` via OpenRouter (`JUDGE_MODEL_ID`) | Temperature 0.2, seed 7+sample, 3 samples per case, max 2000 output tokens. Prompt: [`prompts/judge.md`](../prompts/judge.md) |
+| Application frameworks | PydanticAI 2.54 (`pydantic-ai-slim[openai]`), pydantic-evals 2.54 | Agent, tools and limits; the judge dataset and evaluators. Until stage 8 this was a hand-written loop on the `openai` SDK |
 
 I chose gpt-6-luna from OpenRouter's live model list. At the time it cost $0.10 / $0.50 per million input/output tokens. It supports tools, strict structured outputs, image input and `seed`, which this task needs and which kept the run cost-capped (the full recorded batch costs about $0.0023).
 
@@ -18,7 +21,8 @@ Almost all code, tests, templates and docs were written by Claude Code from my i
 |---|---|
 | Assignment | Alternative A, with all optional enhancements |
 | Stack | FastAPI + HTMX |
-| LLM layer | Plain `openai` SDK with a hand-written tool loop, not LangGraph. I asked whether LangGraph would be better and accepted the argument that the loop is small and must stay visible |
+| LLM layer | Stages 3–8: plain `openai` SDK with a hand-written loop, after I asked about LangGraph and accepted that the loop was small. Stage 9: I asked whether a framework with the same features would be better and chose PydanticAI, because its sibling pydantic-evals also fits the judge |
+| Judge | DeepSeek, a different family from the pipeline, blind to the expected answers |
 | Application model | gpt-6-luna on OpenRouter |
 | Fallback provider | OpenAI direct, added at my request |
 | Commits | One commit per stage |
@@ -63,6 +67,24 @@ R2 (after)   Hello,
 
 Commit `9b76240` keeps the first recordings, so the diff to `bcb1c4c` shows the before and after.
 
+## Stage 9 example: tests that found bugs in "finished" code
+
+**Instruction (stage 9, U2).** Strengthen the deterministic tests: boundary tables for quantities, number words, containers and vague amounts, plus property-based pricing.
+
+**Check.** A subagent wrote the tables against the existing rules and ran them.
+
+**What it found.** Two tables failed on code that had passed 58 tests for a day:
+- `numbers_in("twenty-one")` returned {20, 1}, so a model answer of quantity 1 for "twenty-one" passed;
+- a model that labelled "2 boxes" as `item` was priced as 2 items, against rule 1.
+
+**Correction.** Both were pinned as strict xfails, then fixed in code. A container word in the quantity text now blocks the line, whatever the model claims. Compound number words are read as one value. The model never made either mistake on the recorded data, so this was a latent gap. That is the reason the rule lives in code and not in the prompt.
+
+## Stage 9 example: a judge finding on an unlabelled request
+
+The DeepSeek judge failed J1 ("a dozen of the two-metre USB-C cables"), all three samples agreeing. The model's answer, CAB-2 × 12, was right. Code over-flagged it because the matcher does not equate "two-metre" with "2 m" and the number reader does not know "dozen".
+
+No reference case could show this, because J1 has no expected answer. It is recorded as a follow-up in [`INSIGHTS.md`](INSIGHTS.md), not silently patched, as the plan required.
+
 ## Other corrections
 
 [`DEV_JOURNAL.md`](DEV_JOURNAL.md) has one entry per stage. Each records the goal, the checks run and what was corrected, for example:
@@ -70,3 +92,5 @@ Commit `9b76240` keeps the first recordings, so the diff to `bcb1c4c` shows the 
 - A missing recording was reported as a model outage; it now has its own `REPLAY_MISSING` code.
 - A UI test asserted the wrong thing; the test was fixed, not the app.
 - The user-level `fastapi` skill was used to review the web layer after the build. It found a blocking lock inside an `async` route, and unencoded error messages in redirect URLs. Both were fixed, with a test (journal stage 8).
+- PydanticAI counts retries separately per kind, so an unknown tool name looped to the step limit. A hook now enforces one repair in total (journal stage 9).
+- CI first failed on a non-existent major tag of `setup-uv`. The actions are now pinned to exact releases.
