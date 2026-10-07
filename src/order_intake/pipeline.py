@@ -3,13 +3,10 @@
 import hashlib
 from pathlib import Path
 
-from .catalog import Catalog
 from .config import Settings
-from .extraction import ExtractionFailed, extract
-from .inbox import UnusableInput, list_request_files, parse_request_file, request_id_for
-from .llm import ChatClient
-from .storage import Store
-from .validation import (
+from .domain.catalog import Catalog
+from .domain.inbox import UnusableInput, list_request_files, parse_request_file, request_id_for
+from .domain.validation import (
     APPROVED,
     DUPLICATE,
     FAILED,
@@ -19,6 +16,9 @@ from .validation import (
     finding,
     validate_lines,
 )
+from .llm.extraction import ExtractionFailed, extract
+from .llm.llm import ChatClient
+from .storage import Store
 
 
 class ReviewError(Exception):

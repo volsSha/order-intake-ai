@@ -4,8 +4,8 @@ from dataclasses import replace
 import pytest
 
 from order_intake.config import ConfigError
-from order_intake.llm import ChatClient, LLMError, ReplayMissing
-from order_intake.schemas import TOOLS
+from order_intake.llm.llm import ChatClient, LLMError, ReplayMissing
+from order_intake.llm.schemas import TOOLS
 
 MESSAGES = [{"role": "system", "content": "s"}, {"role": "user", "content": "u"}]
 

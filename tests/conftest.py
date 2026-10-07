@@ -4,7 +4,7 @@ from dataclasses import replace
 import pytest
 
 from order_intake.config import load_settings
-from order_intake.llm import ChatClient, LLMResult
+from order_intake.llm.llm import ChatClient, LLMResult
 from order_intake.pipeline import Pipeline
 from order_intake.storage import Store
 

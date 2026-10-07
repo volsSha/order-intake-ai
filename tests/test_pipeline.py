@@ -129,7 +129,7 @@ def test_duplicate_request_cannot_be_corrected(make_pipeline):
 
 
 def test_check_runner_passes_with_a_well_behaved_model(settings, tmp_path):
-    from order_intake.evaluation import run_checks
+    from order_intake.evals.check import run_checks
     from tests.conftest import FakeClient
 
     report = run_checks(settings, tmp_path / "reports", client_factory=FakeClient)

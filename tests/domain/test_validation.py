@@ -1,0 +1,89 @@
+from order_intake.domain.validation import NEEDS_CLARIFICATION, READY, validate_lines
+from tests.domain.helpers import CATALOG, codes, model_line
+
+
+def test_valid_model_line_is_priced():
+    result = validate_lines([model_line()], CATALOG, author="model", looked_up_skus={"CAB-1"},
+                            source_text="Please send 2 individual CAB-1 cables.")
+    assert result["status"] == READY
+    assert result["order_total_cents"] == 4000
+    assert result["findings"] == []
+
+
+def test_sku_not_returned_by_lookup_is_blocked():
+    result = validate_lines([model_line()], CATALOG, author="model", looked_up_skus=set(),
+                            source_text="Please send 2 individual CAB-1 cables.")
+    assert "SKU_NOT_FROM_LOOKUP" in codes(result)
+    assert result["status"] == NEEDS_CLARIFICATION
+    assert result["order_total_cents"] is None
+
+
+def test_invented_sku_is_blocked():
+    result = validate_lines([model_line(sku="CAB-9")], CATALOG, author="model", looked_up_skus={"CAB-9"},
+                            source_text="Please send 2 individual CAB-1 cables.")
+    assert "SKU_NOT_IN_CATALOG" in codes(result)
+
+
+def test_code_catches_model_guessing_between_two_cables():
+    line = model_line(product_text="USB-C cables", quantity_text="10", quantity=10)
+    result = validate_lines([line], CATALOG, author="model", looked_up_skus={"CAB-1", "CAB-2"},
+                            source_text="Please send 10 USB-C cables for the new office.")
+    assert "AMBIGUOUS_PRODUCT" in codes(result)
+    assert result["status"] == NEEDS_CLARIFICATION
+
+
+def test_sku_that_contradicts_description_is_blocked():
+    line = model_line(product_text="USB hubs", sku="CAB-1")
+    result = validate_lines([line], CATALOG, author="model", looked_up_skus={"CAB-1", "HUB-1"},
+                            source_text="Send 2 USB hubs")
+    assert "PRODUCT_MISMATCH" in codes(result)
+
+
+def test_boxes_are_not_converted_to_items():
+    line = model_line(product_status="ambiguous", sku=None, product_text="the usual cable",
+                      candidate_skus=["CAB-1", "CAB-2"], quantity_text="two boxes", quantity=2, unit="container")
+    result = validate_lines([line], CATALOG, author="model", looked_up_skus={"CAB-1", "CAB-2"},
+                            source_text="Send two boxes of the usual cable.")
+    assert {"AMBIGUOUS_PRODUCT", "NON_ITEM_UNIT"} <= codes(result)
+    assert result["lines"][0]["quantity"] is None
+
+
+def test_quantity_must_be_stated_in_request():
+    line = model_line(quantity_text="2", quantity=20)
+    result = validate_lines([line], CATALOG, author="model", looked_up_skus={"CAB-1"},
+                            source_text="Please send 2 individual CAB-1 cables.")
+    assert "QUANTITY_NOT_IN_SOURCE" in codes(result)
+
+
+def test_number_words_count_as_explicit():
+    line = model_line(product_text="USB hubs", sku="HUB-1", quantity_text="twelve", quantity=12)
+    result = validate_lines([line], CATALOG, author="model", looked_up_skus={"HUB-1"},
+                            source_text="Please ship twelve USB hubs.")
+    assert result["status"] == READY
+    assert result["order_total_cents"] == 54000
+
+
+def test_same_sku_on_two_lines_is_flagged_not_merged():
+    lines = [model_line(quantity_text="5", quantity=5), model_line(quantity_text="5", quantity=5)]
+    result = validate_lines(lines, CATALOG, author="model", looked_up_skus={"CAB-1"},
+                            source_text="5 CAB-1 cables and another 5 CAB-1 cables")
+    assert "DUPLICATE_SKU_LINES" in codes(result)
+
+
+def test_reviewer_line_skips_lookup_provenance_but_checks_catalog():
+    ok = validate_lines([{"sku": "CAB-1", "quantity": 10}], CATALOG, author="reviewer")
+    assert ok["status"] == READY and ok["order_total_cents"] == 18000
+    bad = validate_lines([{"sku": "XYZ", "quantity": 0}], CATALOG, author="reviewer")
+    assert {"SKU_NOT_IN_CATALOG", "INVALID_QUANTITY"} <= codes(bad)
+
+
+def test_no_lines_needs_clarification():
+    result = validate_lines([], CATALOG, author="model", looked_up_skus=set(), source_text="Hello")
+    assert codes(result) == {"NO_LINES"}
+
+
+def test_unit_is_kept_on_validated_lines():
+    model = validate_lines([model_line(unit="item")], CATALOG, author="model", looked_up_skus={"CAB-1"},
+                           source_text="2 CAB-1 cables")
+    reviewer = validate_lines([{"sku": "CAB-1", "quantity": 2}], CATALOG, author="reviewer")
+    assert model["lines"][0]["unit"] == "item" and reviewer["lines"][0]["unit"] == "item"

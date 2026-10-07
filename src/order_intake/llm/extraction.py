@@ -6,12 +6,12 @@ from dataclasses import dataclass, field
 
 from pydantic import ValidationError
 
-from .catalog import Catalog
-from .config import Settings
-from .inbox import IMAGE_TYPES, IncomingRequest
+from ..config import Settings
+from ..domain.catalog import Catalog
+from ..domain.inbox import IMAGE_TYPES, IncomingRequest
+from ..storage import Store
 from .llm import ChatClient, LLMError
 from .schemas import TOOLS, OrderDraftSubmission, SearchCatalogArgs
-from .storage import Store
 
 
 class ExtractionFailed(Exception):

@@ -4,7 +4,15 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-ROOT = Path(__file__).resolve().parents[2]
+
+def _find_root(start: Path) -> Path:
+    for parent in start.resolve().parents:
+        if (parent / "pyproject.toml").is_file():
+            return parent
+    raise RuntimeError(f"pyproject.toml not found above {start}")
+
+
+ROOT = _find_root(Path(__file__))
 
 LLM_MODES = ("live", "replay", "auto")
 PROVIDERS = ("auto", "openrouter", "openai")

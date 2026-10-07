@@ -2,7 +2,7 @@ import argparse
 import sys
 
 from .config import load_settings
-from .llm import SIMULATIONS, ChatClient
+from .llm.llm import SIMULATIONS, ChatClient
 from .pipeline import Pipeline
 from .storage import Store
 
@@ -48,7 +48,7 @@ def cmd_status(args) -> int:
 
 
 def cmd_check(args) -> int:
-    from .evaluation import run_checks
+    from .evals.check import run_checks
 
     settings = load_settings(llm_mode=args.mode, model_id=args.model)
     report = run_checks(settings, settings.root / "reports")

@@ -15,8 +15,8 @@ from pathlib import Path
 
 import openai
 
-from .config import ConfigError, Provider, Settings
-from .storage import now
+from ..config import ConfigError, Provider, Settings
+from ..storage import now
 
 SIMULATIONS = ("model_unavailable", "invalid_output")
 
