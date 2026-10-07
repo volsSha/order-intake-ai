@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# Fork PRs run without secrets; no provider key is ever configured for CI.
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    env:
+      CI: "1"
+      LLM_MODE: replay
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+      - name: Install
+        run: uv sync --frozen
+      - name: Lint
+        run: uv run ruff check .
+      - name: Tests and coverage gate
+        run: uv run pytest --cov
+      - name: Reference checks from recorded responses
+        run: uv run order-intake check
+      - name: LLM judge from recorded responses
+        run: uv run order-intake judge
