@@ -1,0 +1,29 @@
+{
+  "_source": "~/.claude/settings.json (user level): only the keys that affected this exercise",
+  "_omitted": [
+    "env: telemetry and auto-compact toggles",
+    "enabledPlugins and extraKnownMarketplaces: no plugin was used in this exercise; one marketplace source is a private Git URL",
+    "statusLine, tui, theme, worktree and prompt-skip flags: cosmetic",
+    "SessionStart hook for a disabled plugin"
+  ],
+  "model": "opus",
+  "modelSettings": { "claude-opus-5-5": { "effortLevel": "high" } },
+  "attribution": { "commit": "", "pr": "" },
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(**/.env*)",
+      "Read(./secrets/**)",
+      "Read(./config/credentials.json)"
+    ],
+    "defaultMode": "auto"
+  },
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Bash", "hooks": [ { "type": "command", "command": "~/.claude/hooks/rtk-rewrite.sh" } ] },
+      { "matcher": "Bash|Write|Edit|MultiEdit",
+        "hooks": [ { "type": "command", "command": "~/.claude/hooks/strip-claude-attribution.py", "timeout": 10 } ] }
+    ]
+  }
+}

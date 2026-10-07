@@ -1,6 +1,6 @@
 # Minimum demonstration — check results
 
-Generated 2026-10-07T18:10:24+00:00 by `uv run order-intake check` · model `openai/gpt-6-luna` · LLM mode `replay`.
+Generated 2026-10-07T18:29:09+00:00 by `uv run order-intake check` · model `openai/gpt-6-luna` · LLM mode `replay`.
 Expected values come from `data/reference/expected.json` (written and verified independently of the app); observed values come from a fresh database built by the real pipeline.
 
 **Overall: PASS**

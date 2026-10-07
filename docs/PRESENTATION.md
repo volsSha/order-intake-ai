@@ -41,7 +41,7 @@ A written walkthrough with one section per slide. Run `uv run order-intake serve
 - `uv run order-intake check` rebuilds everything on a fresh DB from **recorded real model responses** and compares with 12 expected results written by hand → **17/17 PASS**. It also verifies:
   - reprocessing creates nothing new;
   - a correction survives a restart.
-- 57 unit/integration tests; ruff clean.
+- 58 unit/integration tests; ruff clean.
 - Every model call is labelled `live`, `replay` or `simulated` in the UI and the report.
 
 ## 5. A finding from checking real output

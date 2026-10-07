@@ -69,3 +69,4 @@ Commit `9b76240` keeps the first recordings, so the diff to `bcb1c4c` shows the 
 - "CAB-1 cables" tied CAB-1 and CAB-2 on the word "cable" in description search, so an explicit SKU in the text now wins.
 - A missing recording was reported as a model outage; it now has its own `REPLAY_MISSING` code.
 - A UI test asserted the wrong thing; the test was fixed, not the app.
+- The user-level `fastapi` skill was used to review the web layer after the build. It found a blocking lock inside an `async` route, and unencoded error messages in redirect URLs. Both were fixed, with a test (journal stage 8).

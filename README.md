@@ -99,7 +99,7 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the design decisions and 
 ## Checks
 
 ```bash
-uv run pytest            # 57 tests: core rules, pipeline, LLM layer, web
+uv run pytest            # 58 tests: core rules, pipeline, LLM layer, web
 uv run ruff check .
 uv run order-intake check
 ```

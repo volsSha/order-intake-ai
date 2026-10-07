@@ -99,3 +99,22 @@ Chronological record of how the solution was built with AI assistance: what was 
 The prompt change changes the replay keys, so the first recordings were removed and the batch was recorded again (`var/live2.db`). History keeps the first run.
 
 **Checks.** Added 3 unit tests (frame around the model draft, template used when code raised the finding, `unit` kept). 57 tests pass. `order-intake check` passes in replay mode with both API keys blanked, which shows that a reviewer can reproduce the results without a key.
+
+## Stage 8 — Documentation, AI configuration, FastAPI review (2026-10-07)
+
+**Docs.** README, ARCHITECTURE, LLM_USAGE, INSIGHTS (the improvement is backed by the reason codes from the live run), PRESENTATION and SUBMISSION. `ai-workflow/manifest.json` and `README.md` were filled in from the templates.
+
+**Configuration snapshots.** Only configuration that was actually used is copied, sanitized:
+- user instructions (excerpt);
+- settings: model, permissions and hooks;
+- both hook scripts;
+- one agent memory note;
+- the FastAPI skill's `SKILL.md`.
+
+Plugins were enabled but not used, so they are not copied. Copying user-level configuration into a public repository was first blocked by Claude Code's auto-mode permission classifier. The candidate then reviewed the scope and approved a minimal, sanitized copy.
+
+**FastAPI review (user skill `fastapi`).** The web layer was checked against the skill's topics: structure, request bodies, async, security and testing. Two real defects were found:
+1. `async def correct` ran synchronous SQLite work under a `threading.Lock` on the event loop. A live `/process` run holding the lock would stall every request. It now uses `run_in_threadpool`.
+2. Error messages went into redirect URLs without encoding. They are now URL-encoded.
+
+`test_rejected_action_shows_full_error_message` was added. 58 tests pass and ruff is clean; `ai-workflow/snapshots` is excluded from ruff because it holds verbatim copies.

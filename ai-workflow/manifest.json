@@ -1,66 +1,228 @@
 {
-  "template": true,
-  "instructions": "Replace template values with exercise-specific records. Add entries for every configuration used, including earlier versions or their Git commits. No credentials.",
+  "exercise": "Junior AI Engineer take-home, alternative A: AI Order Intake & Exception Handling",
   "categories": {
     "development_tools_and_models": {
-      "status": "complete-before-submission",
-      "files": [],
-      "notes": ""
+      "status": "used",
+      "files": [
+        "ai-workflow/README.md",
+        "pyproject.toml",
+        "uv.lock",
+        ".python-version"
+      ],
+      "notes": "Claude Code 2.1.292 CLI on WSL2 with Claude Opus 5.5 (claude-opus-5-5), effort high, permission mode auto. Python 3.12, uv 0.11.2, pytest, ruff."
     },
     "plugins_and_extensions": {
-      "status": "complete-before-submission",
+      "status": "not-used",
       "files": [],
-      "notes": ""
+      "notes": "No Claude Code plugin, IDE extension or MCP server was used for this exercise; the plugins enabled at user level are therefore not copied."
     },
     "application_models_and_parameters": {
-      "status": "complete-before-submission",
-      "files": [],
-      "notes": ""
+      "status": "used",
+      "files": [
+        "src/order_intake/config.py",
+        ".env.example",
+        "replay/"
+      ],
+      "notes": "openai/gpt-6-luna via OpenRouter, with OpenAI direct as fallback. reasoning effort low, seed 7, max_completion_tokens 4000, tool_choice required, max 6 calls per request, one repair retry, 60 s timeout, provider-default temperature."
     },
     "skills": {
-      "status": "complete-before-submission",
-      "files": [],
-      "notes": ""
+      "status": "used",
+      "files": [
+        "starter/skills/generate-assignment-data/SKILL.md",
+        "data/GENERATION.md",
+        "ai-workflow/snapshots/skills/fastapi/SKILL.md"
+      ],
+      "notes": "The starter-pack data-generation skill was read and followed as guidance while extending the dataset. The user-level `fastapi` skill was invoked after the build to review the web layer; it found two defects, which were fixed. No custom skills were created."
     },
     "agent_instructions_and_subagents": {
-      "status": "complete-before-submission",
-      "files": [],
-      "notes": ""
+      "status": "used",
+      "files": [
+        "CLAUDE.md",
+        "ai-workflow/snapshots/user-CLAUDE.excerpt.md",
+        "ai-workflow/snapshots/agent-memory/order-intake-repo-identity.md"
+      ],
+      "notes": "Project CLAUDE.md, the relevant sections of the user-level CLAUDE.md, and one agent memory note. No subagents were used."
     },
     "hooks_and_scripts": {
-      "status": "complete-before-submission",
-      "files": [],
-      "notes": ""
+      "status": "used",
+      "files": [
+        "ai-workflow/snapshots/hooks/strip-claude-attribution.py",
+        "ai-workflow/snapshots/hooks/rtk-rewrite.sh",
+        "scripts/verify_reference.py",
+        "scripts/render_attachments.py"
+      ],
+      "notes": "Two user-level PreToolUse hooks were active: attribution stripping, and an rtk command rewriter (third-party token-saving CLI). The project scripts are run manually, not as hooks."
     },
     "prompts_and_rules": {
-      "status": "complete-before-submission",
-      "files": [],
-      "notes": ""
+      "status": "used",
+      "files": [
+        "prompts/extract_order.md",
+        "CLAUDE.md",
+        "docs/ASSUMPTIONS.md"
+      ],
+      "notes": "Application system prompt: v1 in eceda71, v2 in bcb1c4c (clarification wording)."
     },
     "tool_and_mcp_settings": {
-      "status": "complete-before-submission",
-      "files": [],
-      "notes": ""
+      "status": "used",
+      "files": [
+        "src/order_intake/schemas.py"
+      ],
+      "notes": "Application tools: search_catalog and submit_order_draft, strict JSON schema. Development: Claude Code built-in tools only (Bash, Read, Write, Edit, AskUserQuestion). The MCP connectors present in the session were not used."
     },
     "permissions_and_environment_names": {
-      "status": "complete-before-submission",
-      "files": [],
-      "notes": ""
+      "status": "redacted",
+      "files": [
+        ".env.example",
+        "ai-workflow/.env.example",
+        "ai-workflow/snapshots/user-claude-settings.excerpt.json"
+      ],
+      "notes": "Read-deny rules for .env files kept the assistant from reading the API key. Variable names are listed; values are never stored."
     }
   },
   "configuration_records": [
     {
-      "name": "",
-      "category": "",
-      "purpose": "",
-      "original_path_or_scope": "",
-      "saved_path": "",
-      "version_or_commit": "",
-      "used_during": "",
-      "status": "",
+      "name": "Claude Code + Claude Opus 5.5",
+      "category": "development_tools_and_models",
+      "purpose": "Wrote code, tests, data and docs from the candidate's instructions; ran checks and live recording",
+      "original_path_or_scope": "CLI install; model and effort from ~/.claude/settings.json",
+      "saved_path": "ai-workflow/snapshots/user-claude-settings.excerpt.json",
+      "version_or_commit": "Claude Code 2.1.292, claude-opus-5-5",
+      "used_during": "all stages",
+      "status": "used",
+      "redactions": []
+    },
+    {
+      "name": "Project agent instructions",
+      "category": "agent_instructions_and_subagents",
+      "purpose": "Source of truth, architecture rules (model proposes, code decides), checks before finishing, journal logging",
+      "original_path_or_scope": "CLAUDE.md (project)",
+      "saved_path": "CLAUDE.md",
+      "version_or_commit": "48aa07d",
+      "used_during": "all stages",
+      "status": "used",
+      "redactions": []
+    },
+    {
+      "name": "User-level instructions",
+      "category": "agent_instructions_and_subagents",
+      "purpose": "No commits without approval, no Claude attribution, short comments, PATH setup for uv on WSL",
+      "original_path_or_scope": "~/.claude/CLAUDE.md (user)",
+      "saved_path": "ai-workflow/snapshots/user-CLAUDE.excerpt.md",
+      "version_or_commit": "snapshot 2026-10-07",
+      "used_during": "all stages",
+      "status": "redacted",
+      "redactions": [
+        "One section about an unrelated knowledge-graph skill omitted"
+      ]
+    },
+    {
+      "name": "Agent memory: repo identity",
+      "category": "agent_instructions_and_subagents",
+      "purpose": "Remembers the commit identity and the public remote, so later sessions do not commit with the global identity",
+      "original_path_or_scope": "~/.claude/projects/<project>/memory/ (user)",
+      "saved_path": "ai-workflow/snapshots/agent-memory/order-intake-repo-identity.md",
+      "version_or_commit": "snapshot 2026-10-07",
+      "used_during": "stage 7 onward",
+      "status": "redacted",
+      "redactions": [
+        "Local filesystem path replaced"
+      ]
+    },
+    {
+      "name": "Settings excerpt (model, permissions, hooks)",
+      "category": "permissions_and_environment_names",
+      "purpose": "Deny reading .env files, auto permission mode, effort, attribution off, hook registration",
+      "original_path_or_scope": "~/.claude/settings.json (user)",
+      "saved_path": "ai-workflow/snapshots/user-claude-settings.excerpt.json",
+      "version_or_commit": "snapshot 2026-10-07",
+      "used_during": "all stages",
+      "status": "redacted",
+      "redactions": [
+        "Plugin settings omitted (not used; one marketplace source is a private Git URL)",
+        "Cosmetic UI keys and telemetry toggles omitted",
+        "Home paths replaced with ~"
+      ]
+    },
+    {
+      "name": "strip-claude-attribution hook",
+      "category": "hooks_and_scripts",
+      "purpose": "PreToolUse on Bash, Write and Edit: denies any call that would add a Claude attribution footer or a Co-Authored-By trailer",
+      "original_path_or_scope": "~/.claude/hooks/strip-claude-attribution.py (user)",
+      "saved_path": "ai-workflow/snapshots/hooks/strip-claude-attribution.py",
+      "version_or_commit": "snapshot 2026-10-07",
+      "used_during": "all commits",
+      "status": "used",
+      "redactions": []
+    },
+    {
+      "name": "rtk-rewrite hook",
+      "category": "hooks_and_scripts",
+      "purpose": "PreToolUse on Bash: rewrites shell commands through the rtk CLI to shorten their output. It broke plain find and cat output; the workaround was `command cat`",
+      "original_path_or_scope": "~/.claude/hooks/rtk-rewrite.sh (user)",
+      "saved_path": "ai-workflow/snapshots/hooks/rtk-rewrite.sh",
+      "version_or_commit": "rtk-hook-version 3",
+      "used_during": "all stages",
+      "status": "used",
+      "redactions": []
+    },
+    {
+      "name": "Application system prompt",
+      "category": "prompts_and_rules",
+      "purpose": "Domain rules, request text as data, search before submit, structured line fields, clarification format",
+      "original_path_or_scope": "prompts/extract_order.md",
+      "saved_path": "prompts/extract_order.md",
+      "version_or_commit": "v1 eceda71, v2 bcb1c4c",
+      "used_during": "stage 3 onward",
+      "status": "used",
+      "redactions": []
+    },
+    {
+      "name": "Application model settings",
+      "category": "application_models_and_parameters",
+      "purpose": "Provider resolution (OpenRouter, then OpenAI, then replay only), model ID, reasoning effort, seed, limits",
+      "original_path_or_scope": "src/order_intake/config.py, .env.example",
+      "saved_path": "src/order_intake/config.py",
+      "version_or_commit": "c4df6b0, OpenAI fallback c6f39aa",
+      "used_during": "stage 3 onward",
+      "status": "used",
+      "redactions": [
+        "API keys are never stored; names only in .env.example"
+      ]
+    },
+    {
+      "name": "Application tool definitions",
+      "category": "tool_and_mcp_settings",
+      "purpose": "search_catalog and submit_order_draft, strict JSON schemas generated from Pydantic",
+      "original_path_or_scope": "src/order_intake/schemas.py",
+      "saved_path": "src/order_intake/schemas.py",
+      "version_or_commit": "c4df6b0",
+      "used_during": "stage 3 onward",
+      "status": "used",
+      "redactions": []
+    },
+    {
+      "name": "Starter data-generation skill",
+      "category": "skills",
+      "purpose": "Guidance for extending fixtures: keep the rules fixed, keep expected results separate, check arithmetic independently",
+      "original_path_or_scope": "starter pack skills/generate-assignment-data/SKILL.md",
+      "saved_path": "starter/skills/generate-assignment-data/SKILL.md",
+      "version_or_commit": "starter pack 2026-10-02",
+      "used_during": "stage 1 (data)",
+      "status": "used",
+      "redactions": []
+    },
+    {
+      "name": "FastAPI skill",
+      "category": "skills",
+      "purpose": "Checklist for reviewing src/order_intake/web/app.py: structure, request bodies, async, security, testing",
+      "original_path_or_scope": "~/.claude/skills/fastapi (user; symlink to a shared skills folder)",
+      "saved_path": "ai-workflow/snapshots/skills/fastapi/SKILL.md",
+      "version_or_commit": "skill version 2.1.0; SKILL.md only (the assets, references and scripts folders were not loaded)",
+      "used_during": "stage 8 (post-build review)",
+      "status": "used",
       "redactions": []
     }
   ],
-  "replay_command": "",
-  "workflow_example_path": ""
+  "replay_command": "uv sync && uv run order-intake check   # LLM_MODE defaults to replay; no API key needed",
+  "workflow_example_path": "docs/LLM_USAGE.md#workflow-example-instruction--check--correction"
 }
