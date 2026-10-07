@@ -26,3 +26,13 @@ Chronological record of how the solution was built with AI assistance: what was 
 - Rendered attachment inspected visually.
 
 **Correction / finding.** While writing a rounding case the catalog turned out to make rounding impossible to exercise (all prices are multiples of 1000, so 10% is always whole cents). Instead of adding catalog items (the brief says keep the catalog), rounding moved to unit tests with synthetic prices, and the limitation is documented in `data/GENERATION.md`.
+
+## Stage 2 — Domain core (2026-10-07)
+
+**Goal.** Deterministic parts first, so the model has something strict to be checked against: request parsing, catalog lookup, pricing, validation, SQLite storage.
+
+**Design.** The model will only *propose* lines (product wording, SKU from the lookup, quantity wording). `validation.py` decides: SKU must exist and must have been returned by `search_catalog` in the same conversation; the product wording is re-matched against the catalog in code, so a model that quietly picks CAB-1 for "USB-C cables" is overridden to `AMBIGUOUS_PRODUCT`; the quantity must be written in the request; containers never become item counts. Prices come only from `pricing.py`.
+
+**Checks.** 28 unit tests (`tests/test_core.py`) including the domain worked example, half-up rounding with synthetic prices, and one test per finding code.
+
+**Correction.** The first catalog search treated "CAB-1 cables" as a description search, so CAB-1 and CAB-2 tied on the word "cable" — an explicit SKU would have been reported as ambiguous. Found by reading the generated search code against the seed wording before running anything; fixed by detecting SKU-shaped words inside the phrase before description matching, and locked with `test_search_by_sku_inside_phrase`.
