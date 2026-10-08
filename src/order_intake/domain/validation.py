@@ -33,6 +33,7 @@ FINDING_LABELS = {
     "UNUSABLE_INPUT": "Unusable input",
     "MODEL_UNAVAILABLE": "Model unavailable",
     "REPLAY_MISSING": "No recorded model response to replay",
+    "REPLAY_CORRUPT": "Recorded model response is unreadable",
     "PROCESSING_ERROR": "Unexpected processing error",
     "INVALID_MODEL_OUTPUT": "Invalid model output",
     "STEP_LIMIT": "Model did not finish within the step limit",
@@ -51,6 +52,7 @@ TENS_WORDS = {"twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60,
               "ninety": 90}
 ALL_NUMBER_WORDS = {**NUMBER_WORDS, **TENS_WORDS}
 COMPOUND_NUMBER = re.compile(rf"\b({'|'.join(TENS_WORDS)})[- ]({'|'.join(list(NUMBER_WORDS)[:9])})\b")
+DOZEN = re.compile(rf"\b(?:(half an?|an?|\d+|{'|'.join(ALL_NUMBER_WORDS)})[ -])?dozen\b")
 CONTAINER_WORDS = re.compile(r"\b(box(es)?|packs?|cases?|cartons?|crates?|pallets?)\b")
 
 
@@ -62,9 +64,19 @@ def _squash(text: str) -> str:
     return re.sub(r"\s+", " ", text.lower()).strip()
 
 
+def _dozens(multiplier: str) -> int:
+    if multiplier.startswith("half"):
+        return 6
+    if multiplier in ("", "a", "an"):
+        return 12
+    return 12 * (int(multiplier) if multiplier.isdigit() else ALL_NUMBER_WORDS[multiplier])
+
+
 def numbers_in(text: str) -> set[int]:
     lowered = text.lower()
-    found = {int(n) for n in re.findall(r"\d+", lowered)}
+    found = {_dozens(m) for m in DOZEN.findall(lowered)}
+    lowered = DOZEN.sub(" ", lowered)
+    found |= {int(n) for n in re.findall(r"\d+", lowered)}
     found |= {TENS_WORDS[t] + NUMBER_WORDS[u] for t, u in COMPOUND_NUMBER.findall(lowered)}
     found |= {ALL_NUMBER_WORDS[w] for w in re.findall(r"[a-z]+", COMPOUND_NUMBER.sub(" ", lowered))
               if w in ALL_NUMBER_WORDS}

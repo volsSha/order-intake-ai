@@ -6,15 +6,22 @@ from dataclasses import dataclass
 from pathlib import Path
 
 STOPWORDS = {"the", "a", "an", "of", "for", "and", "or", "please", "send", "x", "individual", "usual", "some"}
+LENGTH_WORDS = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}
+LENGTH = re.compile(rf"\b(\d+|{'|'.join(LENGTH_WORDS)})\s*-?\s*(?:m|metres?|meters?)\b")
 
 
 def normalize_sku(text: str) -> str:
     return re.sub(r"[^a-z0-9]", "", text.lower())
 
 
+def _spell_lengths(text: str) -> str:
+    """'two-metre', '2-meter' and '2m' all read as the catalog's '2 m'."""
+    return LENGTH.sub(lambda m: f"{LENGTH_WORDS.get(m.group(1), m.group(1))} m", text)
+
+
 def tokens(text: str) -> set[str]:
     result = set()
-    for raw in re.findall(r"[a-z0-9]+(?:-[a-z0-9]+)*", text.lower()):
+    for raw in re.findall(r"[a-z0-9]+(?:-[a-z0-9]+)*", _spell_lengths(text.lower())):
         word = raw.replace("-", "")
         if word in STOPWORDS:
             continue

@@ -24,5 +24,13 @@ def test_unknown_product_has_no_candidates():
     assert CATALOG.search("Moon adapter") == []
 
 
+@pytest.mark.parametrize("phrase, sku", [
+    ("two-metre USB-C cables", "CAB-2"), ("2-metre USB-C cable", "CAB-2"), ("USB-C cable 2m", "CAB-2"),
+    ("2 meter USB-C cable", "CAB-2"), ("one-metre USB-C cable", "CAB-1"), ("USB-C cable, 1 metre", "CAB-1"),
+])
+def test_spelled_out_lengths_match_the_catalog_length(phrase, sku):
+    assert CATALOG.description_candidates(phrase) == [sku]
+
+
 def test_usb_hub_is_not_confused_with_usb_c_cable():
     assert CATALOG.description_candidates("USB hubs") == ["HUB-1"]

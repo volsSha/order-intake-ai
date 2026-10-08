@@ -108,7 +108,8 @@ def test_validated_line_discount_boundary(quantity, discount, total):
 
 @pytest.mark.parametrize("text, expected", [
     ("one", {1}), ("two", {2}), ("nine", {9}), ("ten", {10}), ("Twelve", {12}), ("twenty", {20}),
-    ("12 x", {12}), ("3 or 4", {3, 4}), ("a dozen", set()), ("a few", set()),
+    ("12 x", {12}), ("3 or 4", {3, 4}), ("a few", set()), ("dozens", set()),
+    ("a dozen", {12}), ("dozen", {12}), ("half a dozen", {6}), ("two dozen", {24}), ("3 dozen", {36}),
 ])
 def test_numbers_in_reads_digits_and_number_words(text, expected):
     assert numbers_in(text) == expected
@@ -167,3 +168,19 @@ def test_vague_amount_with_guessed_number_is_blocked(qty_text, guess):
     result = validate_model(model_line(quantity_text=qty_text, quantity=guess), f"Send {qty_text} CAB-1 cables.")
     assert codes(result) == {"QUANTITY_NOT_IN_SOURCE"}
     assert result["order_total_cents"] is None
+
+
+J1 = "Could we get a dozen of the two-metre USB-C cables?"
+
+
+def test_dozen_of_the_two_metre_cables_is_ready_not_ambiguous():
+    line = model_line(product_text="two-metre USB-C cables", sku="CAB-2", quantity_text="a dozen", quantity=12)
+    result = validate_model(line, J1, looked_up=("CAB-1", "CAB-2"))
+    assert result["findings"] == []
+    assert result["status"] == READY
+    assert result["order_total_cents"] == 12 * 3000 - 3600
+
+
+def test_two_dozen_does_not_support_a_quantity_of_twelve():
+    line = model_line(quantity_text="two dozen", quantity=12)
+    assert "QUANTITY_NOT_IN_SOURCE" in codes(validate_model(line, "Send two dozen CAB-1 cables."))
