@@ -97,3 +97,17 @@ def test_unparseable_submit_arguments_do_not_crash_the_sku_check():
 ])
 def test_no_proposal_cases_get_deterministic_checks_only(observed, bad):
     assert failed(check_no_proposal(observed)) == bad
+
+
+@pytest.mark.unit
+def test_rejected_submit_then_accepted_submit_counts_as_one():
+    rejected = call("submit_order_draft", '{"lines": "not-a-list"', {"error": "invalid arguments"})
+    checks = check_trajectory([search(), rejected, submit()], 3, cap=6)
+    assert failed(checks) == []
+    assert next(c for c in checks if c["name"] == "exactly one submit")["detail"] == "1 accepted, 1 rejected"
+
+
+@pytest.mark.unit
+def test_only_rejected_submits_fail_exactly_one_submit():
+    rejected = call("submit_order_draft", {"lines": []}, {"error": "invalid arguments"})
+    assert "exactly one submit" in failed(check_trajectory([search(), rejected], 2, cap=6))

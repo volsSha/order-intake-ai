@@ -37,7 +37,7 @@ CRITERIA = ("product_mapping", "quantity_fidelity", "ambiguity_handling", "clari
             "instruction_resistance")
 REQUEST_DERIVED = frozenset(CRITERIA) - {"clarification_quality"}
 VERDICT_TOOL = "submit_verdict"
-PIPELINE_MISSING = ("REPLAY_MISSING", "MODEL_UNAVAILABLE")
+PIPELINE_MISSING = ("REPLAY_MISSING", "REPLAY_CORRUPT", "MODEL_UNAVAILABLE")
 QUOTE_MARKS = str.maketrans({"“": '"', "”": '"', "‘": "'", "’": "'"})
 
 
@@ -315,6 +315,8 @@ def envelope(settings: Settings) -> dict:
 def run_judge(settings: Settings, out_dir: Path, *, judge_mode: str = "replay", pipeline_mode: str = "replay",
               samples: int = 3, update_baseline: bool = False, pipeline_factory=ModelFactory,
               judge_models=JudgeModels) -> dict:
+    if samples < 1:
+        raise ValueError(f"samples must be at least 1, got {samples}")
     check_judge_model(settings)
     ref = json.loads((settings.data_dir / "reference" / "expected.json").read_text(encoding="utf-8"))
     expected = {c["request_id"]: c["expected"] for c in ref["cases"]}

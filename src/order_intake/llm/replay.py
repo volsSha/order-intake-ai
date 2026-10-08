@@ -42,6 +42,10 @@ class ReplayMissing(LLMError):
     code = "REPLAY_MISSING"
 
 
+class ReplayCorrupt(LLMError):
+    code = "REPLAY_CORRUPT"
+
+
 def _hash_binary(item):
     if not (isinstance(item, dict) and item.get("kind") == "binary"):
         return item
@@ -154,8 +158,13 @@ class ReplayModel(WrapperModel):
         shown = display_path(path, self.config.root)
         mode = self.config.llm_mode
         if mode != "live" and path.exists():
-            saved = json.loads(path.read_text(encoding="utf-8"))
-            response = RESPONSE.validate_python(saved["response"])
+            try:
+                saved = json.loads(path.read_text(encoding="utf-8"))
+                response = RESPONSE.validate_python(saved["response"])
+            except (ValueError, KeyError, TypeError) as exc:
+                self._log({**record, "source": "replay", "replay_file": shown, "error": f"unreadable: {exc}"})
+                raise ReplayCorrupt(f"Recorded response at {shown} is unreadable ({type(exc).__name__}); "
+                                    "delete it and record again with --mode live.") from exc
             self.replay_files.append(path)
             self._log({**record, "source": "replay", "replay_file": shown, "provider": saved.get("provider"),
                        "latency_ms": saved.get("latency_ms"), "usage": normalized_usage(response)})

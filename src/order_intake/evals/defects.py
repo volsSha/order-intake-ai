@@ -69,9 +69,10 @@ def ambiguous_as_matched(case, catalog: Catalog) -> bool:
     result = case.observed["proposal"]["result"]
     flagged = {f["line"] for f in result["findings"] if f["code"] == "AMBIGUOUS_PRODUCT"}
     line = _first(case, lambda ln: ln["index"] in flagged and ln.get("quantity"))
-    if line is None:
+    candidates = catalog.description_candidates(line["product_text"]) if line else []
+    if not candidates:
         return False
-    _set_line(line, catalog, catalog.description_candidates(line["product_text"])[0], line["quantity"])
+    _set_line(line, catalog, candidates[0], line["quantity"])
     result["findings"] = [f for f in result["findings"] if f["line"] != line["index"]]
     case.observed["proposal"]["clarification"] = None
     return True

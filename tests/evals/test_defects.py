@@ -5,7 +5,7 @@ import pytest
 
 from order_intake.domain.catalog import Catalog
 from order_intake.evals.check import reference_verdict
-from order_intake.evals.defects import DEFECTS, GRADER_NOTE, seed_defects, wrong_sku
+from order_intake.evals.defects import DEFECTS, GRADER_NOTE, ambiguous_as_matched, seed_defects, wrong_sku
 from order_intake.evals.judge import dataset_cases, judge_prompt, snapshot
 
 pytestmark = pytest.mark.integration
@@ -73,3 +73,12 @@ def test_inapplicable_mutation_is_skipped_and_unavailable_base_is_kept(clean):
     down.pipeline_unavailable = True
     [(kept, cls)] = seed_defects({"R6": down}, catalog, defects=[("wrong_sku", "R6", wrong_sku)])
     assert kept.pipeline_unavailable and lines(kept) == lines(cases["R6"]) and cls == "wrong_sku"
+
+
+def test_ambiguous_line_without_catalog_candidates_is_not_seeded(clean):
+    cases, catalog, _ = clean
+    case = copy.deepcopy(cases["R7"])
+    lines(case)[0]["product_text"] = "Moon adapter"
+    before = copy.deepcopy(case.observed)
+    assert ambiguous_as_matched(case, catalog) is False
+    assert case.observed == before

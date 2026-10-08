@@ -6,7 +6,7 @@ from pydantic_evals.evaluators import EvaluationReason, Evaluator, EvaluatorCont
 
 from ..llm.agent import SEARCH, SUBMIT
 
-MODEL_FAILURES = ("MODEL_UNAVAILABLE", "REPLAY_MISSING", "INVALID_MODEL_OUTPUT", "STEP_LIMIT")
+MODEL_FAILURES = ("MODEL_UNAVAILABLE", "REPLAY_MISSING", "REPLAY_CORRUPT", "INVALID_MODEL_OUTPUT", "STEP_LIMIT")
 
 
 def proposal_trajectory(tool_calls: list[dict], llm_call_ids: list[str]) -> list[dict]:
@@ -35,6 +35,11 @@ def _submitted_skus(call: dict) -> set[str]:
     return {ln["sku"] for ln in lines if isinstance(ln, dict) and ln.get("sku")}
 
 
+def _rejected(call: dict) -> bool:
+    result = call.get("result")
+    return isinstance(result, dict) and "error" in result
+
+
 def _check(name: str, passed: bool, detail: str = "") -> dict:
     return {"name": name, "passed": passed, "detail": detail}
 
@@ -49,13 +54,14 @@ def check_trajectory(calls: list[dict], model_requests: int, cap: int) -> list[d
     returned: set[str] = set().union(*(_returned_skus(c) for c in searches))
     submitted: set[str] = set().union(*(_submitted_skus(calls[i]) for i in submits))
     unsearched = sorted(submitted - returned)
+    accepted = sum(not _rejected(calls[i]) for i in submits)
     return [
         _check("requests within cap", model_requests <= cap, f"{model_requests} of {cap}"),
         _check("search before submit", bool(submits) and SEARCH in names[:first_submit]),
         _check("every submitted SKU searched", bool(submits) and bool(searches) and not unsearched,
                ", ".join(unsearched)),
         _check("no repeated identical searches", not repeated, ", ".join(repeated)),
-        _check("exactly one submit", len(submits) == 1, f"{len(submits)} submits"),
+        _check("exactly one submit", accepted == 1, f"{accepted} accepted, {len(submits) - accepted} rejected"),
     ]
 
 

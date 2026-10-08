@@ -8,6 +8,13 @@ from .pipeline import Pipeline
 from .storage import Store
 
 
+def positive_int(value: str) -> int:
+    number = int(value)
+    if number < 1:
+        raise argparse.ArgumentTypeError(f"must be at least 1, got {number}")
+    return number
+
+
 def parse_simulate(values: list[str] | None) -> dict[str, str]:
     out = {}
     for value in values or []:
@@ -125,9 +132,10 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("judge", help="run the offline LLM-judge evaluation on a fresh temporary database")
     p.add_argument("--mode", choices=["replay", "live", "auto"], default="replay", help="judge LLM mode")
-    p.add_argument("--pipeline-mode", choices=["replay", "live"], default="replay",
-                   help="pipeline LLM mode; live re-records into a scratch replay directory (drift run)")
-    p.add_argument("--samples", type=int, default=3, help="judge samples per case (default 3)")
+    p.add_argument("--pipeline-mode", choices=["replay", "live", "auto"], default="replay",
+                   help="pipeline LLM mode; live re-records into a scratch replay directory (drift run), "
+                        "auto records only missing calls into replay/")
+    p.add_argument("--samples", type=positive_int, default=3, help="judge samples per case (default 3)")
     p.add_argument("--update-baseline", action="store_true", help="write judge-baseline.json from this run")
     p.add_argument("--out", help="report directory (default reports)")
     p.set_defaults(func=cmd_judge)

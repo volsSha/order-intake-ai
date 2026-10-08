@@ -170,3 +170,15 @@ def test_replay_miss_at_step_two_keeps_step_one_and_records_the_key(settings):
     assert (miss["step"], miss["source"]) == (2, "replay")
     assert step2.name.removesuffix(".json").split("-")[1] in miss["error"]
     assert "no recorded response for key" in miss["error"]
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("content", ["{not json", '{"format_version": 2}', '{"response": {"parts": 5}}'],
+                         ids=["truncated", "no-response", "bad-response"])
+def test_unreadable_recording_is_replay_corrupt_not_a_crash(settings, content):
+    record(settings, only={"R1"})
+    next(settings.replay_dir.rglob("step01-*.json")).write_text(content)
+    store, _ = replay(settings, "corrupt.db")
+    req = store.get_request("R1")
+    assert req["status"] == "failed" and req["status_reason"].startswith("REPLAY_CORRUPT")
+    assert store.llm_calls("R1")[0]["error"].startswith("unreadable")

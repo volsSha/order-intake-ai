@@ -44,11 +44,6 @@ markers = [
 
 [tool.coverage.run]
 source = ["order_intake"]
-omit = [
-    "src/order_intake/llm/*",
-    "src/order_intake/web/*",
-    "src/order_intake/cli.py",
-]
 
 [tool.coverage.report]
 fail_under = 90
