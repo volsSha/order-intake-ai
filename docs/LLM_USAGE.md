@@ -5,7 +5,7 @@
 | Where | Tool / model | Settings |
 |---|---|---|
 | Development | Claude Code 2.1.292 (CLI, WSL2) with Claude Opus 5.5 (`claude-opus-5-5`) | Effort `high`, permission mode `auto`, project instructions in [`CLAUDE.md`](../CLAUDE.md). Sanitized user-level configuration in [`ai-workflow/`](../ai-workflow/README.md) |
-| Development skills | compound-engineering 3.22.4: `ce-plan`, `ce-doc-review`, `ce-work`, `ce-code-review`, `ce-compound`; user skill `fastapi` | Stage 9 planning, plan review, unit-by-unit execution, code review, captured learnings. Copies in [`ai-workflow/snapshots/skills/`](../ai-workflow/snapshots/skills/) |
+| Development skills | compound-engineering 3.22.4: `ce-plan`, `ce-doc-review`, `ce-work`, `ce-simplify-code`, `ce-code-review`, `ce-compound`; user skill `fastapi` | Stage 9 planning, plan review, unit-by-unit execution, code review, captured learnings. Copies in [`ai-workflow/snapshots/skills/`](../ai-workflow/snapshots/skills/) |
 | Development cross-check | OpenAI Codex CLI, as an independent reviewer inside `ce-doc-review` | Read-only; it reviewed the stage-9 plan |
 | Application, extraction | `openai/gpt-6-luna` via OpenRouter, with OpenAI direct as the fallback | `reasoning.effort=low`, `seed=7`, max 4000 output tokens, strict tool schemas, provider-default temperature, at most 6 requests and one repair. Prompt: [`prompts/extract_order.md`](../prompts/extract_order.md) |
 | Application, judge | `deepseek/deepseek-v4.1-flash` via OpenRouter (`JUDGE_MODEL_ID`) | Temperature 0.2, seed 7+sample, 3 samples per case, max 2000 output tokens. Prompt: [`prompts/judge.md`](../prompts/judge.md) |

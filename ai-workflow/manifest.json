@@ -9,30 +9,34 @@
         "uv.lock",
         ".python-version"
       ],
-      "notes": "Claude Code 2.1.292 CLI on WSL2 with Claude Opus 5.5 (claude-opus-5-5), effort high, permission mode auto. Python 3.12, uv 0.11.2, pytest, ruff."
+      "notes": "Claude Code 2.1.292 CLI on WSL2 with Claude Opus 5.5 (claude-opus-5-5), effort high, permission mode auto; stage-9 subagents on the same model or Sonnet 5.5 for mid-tier review lenses. OpenAI Codex CLI as an independent read-only reviewer inside ce-doc-review. Python 3.12, uv 0.11.2, pytest + Hypothesis, ruff, GitHub Actions."
     },
     "plugins_and_extensions": {
-      "status": "not-used",
-      "files": [],
-      "notes": "No Claude Code plugin, IDE extension or MCP server was used for this exercise; the plugins enabled at user level are therefore not copied."
+      "status": "used",
+      "files": [
+        "ai-workflow/snapshots/skills/compound-engineering/"
+      ],
+      "notes": "compound-engineering 3.22.4 (MIT) drove stage 9: ce-plan, ce-doc-review, ce-work, ce-simplify-code, ce-code-review, ce-compound. Other plugins enabled at user level were not used and are not copied."
     },
     "application_models_and_parameters": {
       "status": "used",
       "files": [
         "src/order_intake/config.py",
+        "src/order_intake/llm/providers.py",
         ".env.example",
         "replay/"
       ],
-      "notes": "openai/gpt-6-luna via OpenRouter, with OpenAI direct as fallback. reasoning effort low, seed 7, max_completion_tokens 4000, tool_choice required, max 6 calls per request, one repair retry, 60 s timeout, provider-default temperature."
+      "notes": "Pipeline: openai/gpt-6-luna via OpenRouter (OpenAI direct fallback), reasoning effort low, seed 7, max 4000 output tokens, tool_choice required via ToolOutput, max 6 requests, one repair. Judge: deepseek/deepseek-v4.1-flash via OpenRouter (JUDGE_MODEL_ID), temperature 0.2, seed 7+sample, 3 samples per case, max 2000 output tokens. Frameworks: pydantic-ai-slim[openai]==2.54.0, pydantic-evals==2.54.0."
     },
     "skills": {
       "status": "used",
       "files": [
         "starter/skills/generate-assignment-data/",
         "data/GENERATION.md",
-        "ai-workflow/snapshots/skills/fastapi/"
+        "ai-workflow/snapshots/skills/fastapi/",
+        "ai-workflow/snapshots/skills/compound-engineering/"
       ],
-      "notes": "The starter-pack data-generation skill was read and followed as guidance while extending the dataset. The user-level `fastapi` skill was invoked after the build to review the web layer; it found two defects, which were fixed. No custom skills were created."
+      "notes": "Starter data-generation skill followed as guidance (stage 1). User skill fastapi used to review the web layer (stage 8). compound-engineering skills used for stage 9 planning, plan review, execution, simplification, code review and captured learnings. No custom skills were created."
     },
     "agent_instructions_and_subagents": {
       "status": "used",
@@ -41,7 +45,7 @@
         "ai-workflow/snapshots/user-CLAUDE.excerpt.md",
         "ai-workflow/snapshots/agent-memory/order-intake-repo-identity.md"
       ],
-      "notes": "Project CLAUDE.md, the relevant sections of the user-level CLAUDE.md, and one agent memory note. No subagents were used."
+      "notes": "Project CLAUDE.md (updated for the stage-9 layout), relevant sections of the user-level CLAUDE.md, one agent memory note. Stage 9 used generic subagents seeded with compound-engineering prompt assets (research, reviewer personas, implementation workers); no custom agent definitions."
     },
     "hooks_and_scripts": {
       "status": "used",
@@ -57,17 +61,20 @@
       "status": "used",
       "files": [
         "prompts/extract_order.md",
+        "prompts/judge.md",
         "CLAUDE.md",
         "docs/ASSUMPTIONS.md"
       ],
-      "notes": "Application system prompt: v1 in eceda71, v2 in bcb1c4c (clarification wording)."
+      "notes": "Extraction prompt v1 (stage 3) and v2 (stage 7, clarification wording); judge rubric v1 (stage 9)."
     },
     "tool_and_mcp_settings": {
       "status": "used",
       "files": [
-        "src/order_intake/llm/schemas.py"
+        "src/order_intake/llm/agent.py",
+        "src/order_intake/llm/schemas.py",
+        "src/order_intake/evals/judge.py"
       ],
-      "notes": "Application tools: search_catalog and submit_order_draft, strict JSON schema. Development: Claude Code built-in tools only (Bash, Read, Write, Edit, AskUserQuestion). The MCP connectors present in the session were not used."
+      "notes": "Application tools: search_catalog (sequential, strict) and the submit_order_draft ToolOutput; judge output tool submit_verdict. Development: Claude Code built-in tools; the context7 MCP server for PydanticAI documentation (stage 9); other MCP connectors in the session were not used."
     },
     "permissions_and_environment_names": {
       "status": "redacted",
@@ -179,10 +186,10 @@
     {
       "name": "Application model settings",
       "category": "application_models_and_parameters",
-      "purpose": "Provider resolution (OpenRouter, then OpenAI, then replay only), model ID, reasoning effort, seed, limits",
+      "purpose": "Provider resolution (OpenRouter, then OpenAI, then replay only), model ids for pipeline and judge, reasoning effort, seed, limits",
       "original_path_or_scope": "src/order_intake/config.py, .env.example",
       "saved_path": "src/order_intake/config.py",
-      "version_or_commit": "c4df6b0, OpenAI fallback c6f39aa",
+      "version_or_commit": "stage 3, OpenAI fallback stage 6, PydanticAI providers and judge settings stage 9",
       "used_during": "stage 3 onward",
       "status": "used",
       "redactions": [
@@ -192,8 +199,8 @@
     {
       "name": "Application tool definitions",
       "category": "tool_and_mcp_settings",
-      "purpose": "search_catalog and submit_order_draft, strict JSON schemas generated from Pydantic",
-      "original_path_or_scope": "src/order_intake/llm/schemas.py",
+      "purpose": "search_catalog tool and submit_order_draft strict ToolOutput (PydanticAI); schemas from Pydantic",
+      "original_path_or_scope": "src/order_intake/llm/schemas.py, src/order_intake/llm/agent.py",
       "saved_path": "src/order_intake/llm/schemas.py",
       "version_or_commit": "c4df6b0",
       "used_during": "stage 3 onward",
@@ -219,6 +226,54 @@
       "saved_path": "ai-workflow/snapshots/skills/fastapi/",
       "version_or_commit": "skill version 2.1.0, full folder copied as is (SKILL.md, assets/, references/, scripts/); only SKILL.md was loaded during the review",
       "used_during": "stage 8 (post-build review)",
+      "status": "used",
+      "redactions": []
+    },
+    {
+      "name": "compound-engineering skills",
+      "category": "skills",
+      "purpose": "Stage 9 workflow: ce-plan (plan with research agents), ce-doc-review (5 reviewer personas + Codex cross-model pass), ce-work (unit execution with fresh subagents), ce-simplify-code, ce-code-review (8 lenses + validator), ce-compound (captured learning)",
+      "original_path_or_scope": "~/.claude/plugins/cache/compound-engineering-plugin/compound-engineering/3.22.4/skills/ (user plugin)",
+      "saved_path": "ai-workflow/snapshots/skills/compound-engineering/",
+      "version_or_commit": "plugin 3.22.4, full skill folders copied as is with the MIT licence",
+      "used_during": "stage 9",
+      "status": "used",
+      "redactions": []
+    },
+    {
+      "name": "context7 MCP",
+      "category": "tool_and_mcp_settings",
+      "purpose": "Up-to-date PydanticAI / pydantic-evals documentation lookups during planning",
+      "original_path_or_scope": "user-level MCP server (context7@claude-plugins-official)",
+      "saved_path": "",
+      "version_or_commit": "",
+      "used_during": "stage 9 planning",
+      "status": "used",
+      "redactions": [
+        "Server configuration not copied; it holds no exercise-specific settings"
+      ]
+    },
+    {
+      "name": "OpenAI Codex CLI (cross-model reviewer)",
+      "category": "development_tools_and_models",
+      "purpose": "Independent read-only review of the stage-9 plan (adversarial, security and whole-document passes) inside ce-doc-review",
+      "original_path_or_scope": "codex CLI on PATH (user install)",
+      "saved_path": "",
+      "version_or_commit": "",
+      "used_during": "stage 9 plan review",
+      "status": "used",
+      "redactions": [
+        "Not used for the code review because that route reads the working tree, which holds a local .env"
+      ]
+    },
+    {
+      "name": "Judge prompt",
+      "category": "prompts_and_rules",
+      "purpose": "Blind rubric for the DeepSeek judge: five criteria, verbatim evidence quotes",
+      "original_path_or_scope": "prompts/judge.md",
+      "saved_path": "prompts/judge.md",
+      "version_or_commit": "rubric v1",
+      "used_during": "stage 9",
       "status": "used",
       "redactions": []
     }

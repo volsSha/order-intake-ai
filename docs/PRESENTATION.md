@@ -41,7 +41,7 @@ A written walkthrough with one section per slide. Run `uv run order-intake serve
 - `uv run order-intake check` rebuilds everything on a fresh DB from **recorded real model responses** and compares with 12 expected results written by hand → **17/17 PASS**. It also verifies:
   - reprocessing creates nothing new;
   - a correction survives a restart.
-- 232 tests, with no network. Property-based pricing tests, and a secret scan of every tracked file. Coverage is 97% of deterministic code. CI runs everything on every push with no API key.
+- 235 tests, with no network. Property-based pricing tests, and a secret scan of every tracked file. Coverage is 97% of deterministic code. CI runs everything on every push with no API key.
 - Every model call is labelled `live`, `replay` or `simulated` in the UI and the reports.
 - The agent runs on **PydanticAI**: typed tools, a request cap and one repair. A custom wrapper records every real response, so the whole app replays without a key.
 

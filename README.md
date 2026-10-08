@@ -16,7 +16,7 @@ The app turns free-text and image customer orders into draft orders, flags what 
 | Reference checks on recorded real responses | **17/17 PASS** ([report](reports/minimum-demonstration.md)) |
 | Batch of 12 requests | 9 orders: 5 ready for review, 5 need clarification, 1 duplicate, 1 failed |
 | LLM judge on seeded defects | **6/6 caught** by the judge alone; 0/9 false fails on clean cases; kappa 1.00 ([report](reports/judge-report.md)) |
-| Tests | 232, no network; coverage 97% of deterministic code (gate 90%); CI on every push |
+| Tests | 235, no network; coverage 97% of deterministic code (gate 90%); CI on every push |
 
 ## Run it: no API key needed
 

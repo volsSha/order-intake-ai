@@ -5,7 +5,12 @@ Only configuration that was actually used is copied here. Every record, with its
 ## Tools and models
 
 **Development time.** Claude Code 2.1.292 (CLI, WSL2) with Claude Opus 5.5 (`claude-opus-5-5`), effort `high`, permission mode `auto`.
-- No subagents, plugins or MCP servers were used.
+- Stages 1–8 used no subagents, plugins or MCP servers.
+- Stage 9 used:
+  - the **compound-engineering** plugin skills (see below);
+  - generic subagents seeded with that plugin's prompt assets;
+  - the **context7** MCP server for PydanticAI documentation;
+  - the **OpenAI Codex CLI** as an independent read-only reviewer of the stage-9 plan.
 - The local toolchain was Python 3.12, uv 0.11.2, pytest and ruff.
 
 **Inside the application.** `openai/gpt-6-luna` through OpenRouter (`https://openrouter.ai/api/v1`), with OpenAI direct as the fallback when no OpenRouter key is set.
@@ -21,7 +26,7 @@ Only configuration that was actually used is copied here. Every record, with its
 | Timeout | 60 s |
 | Temperature | provider default |
 
-The client is the `openai` Python SDK 3.26.0. All of these settings are in `src/order_intake/config.py`, and the variable names are in [`.env.example`](.env.example).
+The judge is `deepseek/deepseek-v4.1-flash` via OpenRouter (`JUDGE_MODEL_ID`): temperature 0.2, seed 7+sample, 3 samples per case, at most 2000 output tokens. Since stage 9 both run on PydanticAI 2.54 (`pydantic-ai-slim[openai]`) and pydantic-evals 2.54. Until then the client was the `openai` Python SDK 3.26.0. All of these settings are in `src/order_intake/config.py`, and the variable names are in [`.env.example`](.env.example).
 
 ## Configuration files
 
@@ -47,6 +52,21 @@ The client is the `openai` Python SDK 3.26.0. All of these settings are in `src/
 - **`fastapi`** (user level) was invoked after the build to review `src/order_intake/web/app.py`. It found two defects, both fixed with a test:
   - `async def correct` took a `threading.Lock` and wrote to SQLite on the event loop. While `/process` held the lock during live model calls, the whole server would stall. The work now runs in `run_in_threadpool`.
   - Error messages were put into redirect URLs without encoding, so a message containing `&` or `#` would be cut off. They are now URL-encoded.
+
+### compound-engineering skills (stage 9)
+
+Full skill folders, copied as is with the plugin's MIT licence, are in [`snapshots/skills/compound-engineering/`](snapshots/skills/compound-engineering/).
+
+| Skill | What it did here | Result |
+|---|---|---|
+| `ce-plan` | Five research agents and a flow analysis, then the [stage-9 plan](../docs/plans/2026-10-07-2318-feat-pydanticai-judge-structure-plan.md) | 8 units, 18 KTDs |
+| `ce-doc-review` | Five reviewer personas plus a Codex cross-model pass over the plan | 35 findings, 24 applied |
+| `ce-work` | Ran the units one at a time with fresh subagents; I reviewed, re-tested and committed each one | U1–U8 committed; CI green |
+| `ce-simplify-code` | Reuse, quality and efficiency reviewers over the source diff | 12 behaviour-preserving changes; replay keys unchanged |
+| `ce-code-review` | Eight review lenses, mechanical dedup and an independent validator | 1 validated finding, fixed with a test |
+| `ce-compound` | Wrote one learning | [PydanticAI retry budgets](../docs/solutions/integration-issues/pydantic-ai-separate-retry-budgets.md) |
+
+**Deviation, recorded on purpose.** `ce-code-review` normally sends its adversarial lens to an external cross-model reviewer that reads the working tree. That pass was skipped, because the tree holds the local `.env` with API keys, and the in-process adversarial reviewer covered the lens instead.
 
 ### Hooks
 

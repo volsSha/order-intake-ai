@@ -180,3 +180,12 @@ Both were fixed in code (commit "fix: block container words in code…").
 **Correction.** The first run failed because `astral-sh/setup-uv@v10` has no major tag. The actions are now pinned to exact releases, and CI is green.
 
 **U8, docs.** The README became a short entry page. Every folder has an index README. The architecture, LLM usage, insights, presentation and submission docs and the AI-workflow records were updated.
+
+**Finish (ce-work shipping).**
+- `ce-simplify-code`: three reviewers proposed changes for reuse, quality and efficiency. I applied 12 of them and skipped 8.
+  - Skipped: sharing one HTTP client across runs, because it contradicts the per-run provider decision; caching the prompt file, because it would break the changed-prompt test; parallel judge samples, because they change the failure path.
+  - Check: replay keys and the `check` and `judge` reports stayed byte-identical apart from timestamps.
+- `ce-code-review`: eight lenses ran. Three hit a usage limit and two of them were re-run. 16 candidates were dropped at confidence 50 and recorded as residual risks.
+  - An independent validator rejected two of the three remaining findings: the judge exit-code contract and the substring quote rule are both deliberate plan decisions. It confirmed one: the `pipeline_unavailable` path of the judge had no integration test. The fix added that test, checked red by breaking the detection, and the suite is now 235 tests.
+  - The external cross-model pass was skipped on purpose, because it reads the working tree and that tree holds the local `.env`.
+- `ce-compound`: recorded the PydanticAI retry-budget learning in [`solutions/`](solutions/integration-issues/pydantic-ai-separate-retry-budgets.md).

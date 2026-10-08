@@ -10,3 +10,4 @@
 | [`PRESENTATION.md`](PRESENTATION.md) | A written walkthrough of about 5 minutes |
 | [`SUBMISSION.md`](SUBMISSION.md) | Brief requirements mapped to files; delivery and checklist |
 | [`plans/`](plans/) | The stage-9 implementation plan (compound-engineering `ce-plan`, reviewed with `ce-doc-review`) |
+| [`solutions/`](solutions/) | Captured learnings (`ce-compound`), e.g. [PydanticAI retry budgets](solutions/integration-issues/pydantic-ai-separate-retry-budgets.md) |
