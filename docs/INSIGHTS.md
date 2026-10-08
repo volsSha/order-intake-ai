@@ -44,10 +44,17 @@ Source: [`reports/judge-report.md`](../reports/judge-report.md) (DeepSeek judge,
 - **It catches what deterministic checks cannot.** Of the 6 seeded defects, deterministic checks caught 5. The sixth was a clarification claiming the unknown "Moon adapter" is out of stock. It has a correct status, lines and finding codes, and only the judge failed it, quoting "The Moon adapter is out of stock this week". Judge-only detection was 6/6, with 0 false fails on the 9 clean cases and kappa 1.00. All 3 samples agreed on all 270 sample pairs, so the noise floor on this corpus is zero.
 - **It found a real over-flagging gap on an unlabelled request.** J1 asks for "a dozen of the two-metre USB-C cables".
   - The model proposed the right answer: CAB-2 × 12.
-  - Code then blocked it. The description matcher does not equate "two-metre" with "2 m", so CAB-1 and CAB-2 tie (`AMBIGUOUS_PRODUCT`). The number reader does not know "dozen" (`QUANTITY_NOT_IN_SOURCE`).
+  - Code then blocked it. The description matcher did not equate "two-metre" with "2 m", so CAB-1 and CAB-2 tied (`AMBIGUOUS_PRODUCT`). The number reader did not know "dozen" (`QUANTITY_NOT_IN_SOURCE`).
   - The judge failed ambiguity handling and clarification quality, all three samples agreeing, with the rationale "the two-metre cable is unambiguous … a dozen is a clear count".
 
-  The reference set could not have shown this, because J1 has no expected answer. The conservative checks still never guess. The cost is an unnecessary clarification email.
-- **Follow-up, not done in this stage.** Teach the matcher unit spellings ("two-metre", "2-metre", "2 m") and the number reader "dozen". Then re-record J1 and run `order-intake judge`: the baseline comparison should show J1 move from fail to pass with no regression elsewhere. That loop is the reason the baseline exists.
+  The reference set could not have shown this, because J1 has no expected answer. The conservative checks never guessed; the cost was an unnecessary clarification email.
+- **Fixed in stage 10, and proven with the baseline.** The matcher now reads written-out lengths as the catalog's "2 m", and the number reader knows "a dozen", "half a dozen" and "N dozen" (assumptions A12, A13). Only J1's calls had to be re-recorded. The judge run against the committed baseline then showed:
+
+  | Change | Case | Criterion | Before | After | Samples |
+  |---|---|---|---|---|---|
+  | improvement | J1 | ambiguity_handling | fail | pass | pass, pass, pass |
+  | improvement | J1 | clarification_quality | fail | pass | pass, pass, pass |
+
+  0 regressions in the other 88 compared case criteria, `check` still 17/17, calibration unchanged (6/6, 0/9). J1 is now `ready_for_review` at 12 × 3000 − 3600 = **32,400 cents**. The new baseline was written from that run.
 
 The improvement suggestion above stands. A structured order form with SKU and item-count fields also removes this class of wording problem, because a form never says "two-metre".

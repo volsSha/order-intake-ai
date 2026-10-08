@@ -41,7 +41,7 @@ A written walkthrough with one section per slide. Run `uv run order-intake serve
 - `uv run order-intake check` rebuilds everything on a fresh DB from **recorded real model responses** and compares with 12 expected results written by hand → **17/17 PASS**. It also verifies:
   - reprocessing creates nothing new;
   - a correction survives a restart.
-- 235 tests, with no network. Property-based pricing tests, and a secret scan of every tracked file. Coverage is 97% of deterministic code. CI runs everything on every push with no API key.
+- 264 tests, with no network. Property-based pricing tests, and a secret scan of every tracked file. Coverage is 97% of all application code, gate 90%. CI runs everything on every push with no API key.
 - Every model call is labelled `live`, `replay` or `simulated` in the UI and the reports.
 - The agent runs on **PydanticAI**: typed tools, a request cap and one repair. A custom wrapper records every real response, so the whole app replays without a key.
 
@@ -60,6 +60,5 @@ All checks passed on the first live run. Reading the actual output still found a
 
 - 4 of the 5 clarifications come from free-text wording. **A structured order form with SKU and item-count fields** removes both causes.
 - The judge found a third example on an unlabelled request. On "a dozen of the two-metre USB-C cables" the model was right, but code's matcher over-flagged it.
-- Next:
-  - teach the matcher unit spellings and "dozen", then use the baseline to prove nothing else regressed;
-  - measure the exception breakdown on real traffic.
+- That was fixed, and the baseline proved it: J1 moved from fail to pass on two criteria, with 0 regressions elsewhere. This is the loop the judge is for: find, fix, re-run, compare.
+- Next: measure the exception breakdown on real traffic before investing in the form.

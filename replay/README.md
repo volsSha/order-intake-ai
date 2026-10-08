@@ -19,13 +19,16 @@ Every real model call is stored here, so the whole application, `check` and `jud
 | `response` | The serialized PydanticAI `ModelResponse`, including usage and cost |
 | `provider`, `provider_model`, `latency_ms`, `recorded_at` | Where and when it was recorded |
 
-The key does not depend on the provider, so a response recorded through OpenRouter replays when only OpenAI is configured. Changing a prompt, a request or a model setting changes the key: replay then stops with `REPLAY_MISSING`, never with a stale answer.
+The key does not depend on the provider, so a response recorded through OpenRouter replays when only OpenAI is configured. Changing a prompt, a request or a model setting changes the key: replay then stops with `REPLAY_MISSING`, never with a stale answer. A recording that exists but cannot be parsed stops with `REPLAY_CORRUPT`.
 
 ## Re-recording
 
 ```bash
 uv run order-intake process --mode live --db var/live.db   # pipeline (needs OPENROUTER_API_KEY or OPENAI_API_KEY)
 uv run order-intake judge --mode live --samples 3 --update-baseline   # judge (needs OPENROUTER_API_KEY)
+uv run order-intake judge --mode auto --pipeline-mode auto             # record only the calls that are missing
 ```
+
+`auto` replays every call that is already recorded and calls the model only on a miss. Stage 10 used it to re-record J1 after a validation fix, leaving every other recording untouched.
 
 Delete the old files of a changed request first. The orphan test fails on any recording that a full replay run does not read.

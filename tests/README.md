@@ -2,7 +2,7 @@
 
 ```bash
 uv run pytest                 # everything; no network, no API key needed
-uv run pytest --cov           # with the coverage gate (90% on deterministic code)
+uv run pytest --cov           # with the coverage gate (90% of the whole package)
 uv run pytest -m unit         # fast rule tests only
 uv run pytest -m integration  # pipeline, web, replay-backed runs
 CI=1 uv run pytest            # derandomized Hypothesis profile, as in CI
@@ -18,5 +18,6 @@ Real model requests are blocked for the whole suite (`pydantic_ai.models.ALLOW_M
 | [`evals/`](evals/) | Trajectory checks, reference adapter, judge quote verification, majority and noise floor, calibration math, baseline comparison, blindness of the judge prompt |
 | [`web/`](web/) | Queue filter, detail page, correction → approval → export through HTTP forms, error redirects, model-call table |
 | [`test_pipeline.py`](test_pipeline.py) | End-to-end batch: statuses, duplicates, conflicts, idempotent reprocessing, simulated failures, the `check` runner |
+| [`test_cli.py`](test_cli.py) | Every CLI command: process and status from recordings, check and judge exit codes, `--samples` and `--simulate` validation, serve options |
 | [`test_storage.py`](test_storage.py) | Non-destructive schema upgrade of an existing database |
 | [`test_repo_hygiene.py`](test_repo_hygiene.py) | Secret scan of every tracked file (key patterns and the literal values from a local `.env`), `.env` not tracked, replay files valid with no orphans, starter-pack checksums |

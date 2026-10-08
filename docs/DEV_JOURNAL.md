@@ -189,3 +189,38 @@ Both were fixed in code (commit "fix: block container words in code…").
   - An independent validator rejected two of the three remaining findings: the judge exit-code contract and the substring quote rule are both deliberate plan decisions. It confirmed one: the `pipeline_unavailable` path of the judge had no integration test. The fix added that test, checked red by breaking the detection, and the suite is now 235 tests.
   - The external cross-model pass was skipped on purpose, because it reads the working tree and that tree holds the local `.env`.
 - `ce-compound`: recorded the PydanticAI retry-budget learning in [`solutions/`](solutions/integration-issues/pydantic-ai-separate-retry-budgets.md).
+
+## Stage 10: judge finding fixed, review residuals closed, README for reviewers (2026-10-08)
+
+**Goal.** Act on what stage 9 found instead of only recording it, and make the README answer every item the brief asks for.
+
+**J1 fix.** Boundary tests came first:
+- "a dozen" = 12, "half a dozen" = 6, "two dozen" = 24, and "dozens" stays vague;
+- "two dozen" must not support a quantity of 12;
+- "two-metre", "2-metre", "2m" and "2 meter" match CAB-2, "one-metre" matches CAB-1, and "USB-C cables" still ties.
+
+Then the number reader and the description matcher were changed (assumptions A12, A13).
+
+**Check.** The orphan test failed at once, as designed. The search result for J1 changed, so the old J1 recordings were no longer read. `judge --mode auto --pipeline-mode auto` re-recorded only J1: one pipeline step and three judge samples. The model again proposed CAB-2 × 12, and code now accepts it: `ready_for_review`, 32,400 cents.
+
+**Proof with the baseline.** The baseline comparison only named regressions, so a fix was invisible in it. It now lists improvements too. Against the stage-9 baseline:
+- J1 `ambiguity_handling` and `clarification_quality` moved from fail to pass, all samples agreeing;
+- there were 0 regressions in the other 88 case criteria;
+- `check` stayed 17/17, and calibration stayed 6/6 detection with 0/9 false fails.
+
+The baseline was then updated from that run.
+
+**Review residuals closed.**
+- An unreadable recording raised an untyped error. It now fails the request with `REPLAY_CORRUPT`, and the judge treats it like a missing recording.
+- `--samples 0` crashed. It is now rejected by the CLI and by `run_judge`.
+- The `ambiguous_as_matched` seeder indexed `[0]` on a possibly empty candidate list. It now skips.
+- A submit rejected for invalid arguments and then repaired counted as two submits. The trajectory now counts accepted submits.
+- The coverage gate left out `llm`, `web` and `cli`. It now covers the whole package: 97.4%, with new CLI tests taking `cli.py` from 65% to 98%.
+
+Two residuals stay by design, with the reason written down in [`ARCHITECTURE.md`](ARCHITECTURE.md):
+- the judge exit code gates only missing recordings;
+- quotes may come from the catalog.
+
+**README.** It was rewritten as a document a reviewer can read top to bottom. There is one section per brief requirement: setup, run, replay without a key, architecture, model configuration, data and assumptions, results, time spent and limitations. Each section links to the detailed doc.
+
+**Result.** 264 tests pass, coverage is 97.4%, ruff is clean, `check` is 17/17 and `judge` exits 0, all with no API key.

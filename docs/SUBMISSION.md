@@ -24,8 +24,8 @@ The brief's *Submission* section asks for a **Git repository** with the solution
 
 - [x] No secrets in tracked files or history. `.env` and editor swap files are gitignored; replay files contain no keys or headers.
 - [x] `uv run order-intake check` and `uv run order-intake judge` pass **with no API key**.
-- [x] `uv run pytest --cov` (235 tests, coverage gate 90%) and `uv run ruff check .` pass.
+- [x] `uv run pytest --cov` (264 tests, coverage gate 90% on the whole package) and `uv run ruff check .` pass.
 - [x] CI is green on GitHub: a clean machine with no secrets runs lint, tests, `check` and `judge`.
 - [x] Commits authored as the submitting candidate.
 - [x] Fresh clone smoke test: `git clone … && uv sync && uv run order-intake check` passes with no key. CI repeats this on every push.
-- [ ] Tag the submitted commit: `git tag submission-v1 && git push --tags`.
+- [x] Tag the submitted commit: `submission-v1`.

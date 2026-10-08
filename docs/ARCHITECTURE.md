@@ -38,10 +38,10 @@ A model line is accepted only if every check passes. Otherwise it is kept, flagg
 
 1. **The SKU exists** in the catalog (`SKU_NOT_IN_CATALOG`).
 2. **The SKU came from a `search_catalog` result in the same run** (`SKU_NOT_FROM_LOOKUP`). This blocks SKUs the model made up or remembered.
-3. **The wording matches exactly one product.** Code re-runs the description match. If several products tie, the line is `AMBIGUOUS_PRODUCT` even when the model said `matched`.
+3. **The wording matches exactly one product.** Code re-runs the description match. If several products tie, the line is `AMBIGUOUS_PRODUCT` even when the model said `matched`. Written-out lengths ("two-metre", "2m") count as the catalog's "2 m".
 4. **The model's own uncertainty is respected**: `unknown`/`ambiguous` product status, `unclear` unit, vague quantity.
 5. **Containers are blocked in code.** A box, pack, case, carton, crate or pallet in the quantity text gives `NON_ITEM_UNIT`, whatever unit the model claimed. This was added after a test found that a model label alone let "2 boxes" through.
-6. **The quantity appears in the request text**, as digits or a number word, including compounds such as "twenty-one" (`QUANTITY_NOT_IN_SOURCE`). The check is skipped for image-only requests.
+6. **The quantity appears in the request text**, as digits or a number word, including compounds such as "twenty-one" and dozens ("a dozen" = 12, "two dozen" = 24) (`QUANTITY_NOT_IN_SOURCE`). The check is skipped for image-only requests.
 7. **The product wording appears in the request text.** A mismatch raises a warning and does not block the line.
 
 Reviewer corrections go through the same `validate_lines` with `author="reviewer"`. Checks 2–7 describe what the model read, so they do not apply to a reviewer. The catalog check and the positive-integer check still apply.
@@ -64,6 +64,7 @@ The agent has:
 | `UnexpectedModelBehavior` | `INVALID_MODEL_OUTPUT` |
 | Provider HTTP or API error | `MODEL_UNAVAILABLE` |
 | Missing recording in replay mode | `REPLAY_MISSING` |
+| Recording exists but cannot be read | `REPLAY_CORRUPT` |
 
 ## Record and replay ([`llm/replay.py`](../src/order_intake/llm/replay.py))
 
@@ -94,19 +95,20 @@ Three evaluators run on each case:
 
 | Evaluator | Kind | What it checks |
 |---|---|---|
-| Trajectory | deterministic | Requests within the cap, search before submit, every submitted SKU searched, no repeated searches, exactly one submit. Built from the tool calls linked to the proposal's model calls |
+| Trajectory | deterministic | Requests within the cap, search before submit, every submitted SKU searched, no repeated searches, exactly one accepted submit (a submit rejected for invalid arguments and then repaired does not count twice). Built from the tool calls linked to the proposal's model calls |
 | Reference | deterministic | The same comparison as `order-intake check`, reused through an adapter |
 | Rubric judge | `deepseek/deepseek-v4.1-flash` | Five criteria with a verdict of pass, fail or cannot_verify each, and a verbatim evidence quote |
 
 Decisions:
 - **Different family.** The pipeline uses an OpenAI model, so the judge is DeepSeek. This avoids self-preference bias. A same-family `JUDGE_MODEL_ID` is a configuration error, and there is no OpenAI judge fallback.
 - **Blind.** The judge sees the request (text or image), the catalog, the rules and the validated result. It never sees the expected answers, case names, defect labels or the trajectory.
-- **Quotes checked in code.** A quote that is not in the inputs turns the verdict into `cannot_verify`. Quotes from the image (R11) are kept but flagged.
+- **Quotes checked in code.** A quote that is not in the inputs turns the verdict into `cannot_verify`. The inputs include the catalog, on purpose: a product-mapping verdict often has to quote a catalog name. Quotes from the image (R11) are kept but flagged.
 - **Deterministic wins.** Any deterministic failure makes the case fail, whatever the judge says. The judge cannot be talked into a pass by text in the request.
-- **Noise versus drift.** There are three samples per case, and the baseline keeps the majority, so a single-sample flip is noise. A regression is a majority flip within the same envelope: judge model, rubric version and corpus fingerprint.
+- **Noise versus drift.** There are three samples per case, and the baseline keeps the majority, so a single-sample flip is noise. A regression is a majority flip from pass to fail within the same envelope: judge model, rubric version and corpus fingerprint. A flip from fail to pass is listed as an improvement.
+- **Exit code.** `judge` exits non-zero only when a recording is missing or unreadable. Calibration targets and regressions are reported, not gated, so a provider-side wording change cannot break CI on its own.
 - **Calibration.** Detection per defect class, false fails on clean cases, and agreement and Cohen's kappa on the judge's own verdict, all with counts.
 
-Current results are in [`reports/judge-report.md`](../reports/judge-report.md). The finding they revealed is in [`docs/INSIGHTS.md`](INSIGHTS.md).
+Current results are in [`reports/judge-report.md`](../reports/judge-report.md). What the judge found, and how the fix was proven with the baseline, is in [`docs/INSIGHTS.md`](INSIGHTS.md).
 
 ## Storage ([`storage.py`](../src/order_intake/storage.py), SQLite)
 

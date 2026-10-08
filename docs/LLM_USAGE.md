@@ -83,7 +83,9 @@ Commit `9b76240` keeps the first recordings, so the diff to `bcb1c4c` shows the 
 
 The DeepSeek judge failed J1 ("a dozen of the two-metre USB-C cables"), all three samples agreeing. The model's answer, CAB-2 × 12, was right. Code over-flagged it because the matcher does not equate "two-metre" with "2 m" and the number reader does not know "dozen".
 
-No reference case could show this, because J1 has no expected answer. It is recorded as a follow-up in [`INSIGHTS.md`](INSIGHTS.md), not silently patched, as the plan required.
+No reference case could show this, because J1 has no expected answer. Stage 9 recorded it in [`INSIGHTS.md`](INSIGHTS.md) instead of patching it silently, as the plan required.
+
+**Correction (stage 10).** The matcher learned written-out lengths and the number reader learned "dozen", with boundary tests first ("two dozen" must not support a quantity of 12; "dozens" stays vague). J1 was re-recorded, and the judge run against the committed baseline showed J1 move from fail to pass on two criteria with 0 regressions elsewhere. The baseline report now names improvements as well as regressions, so this proof is visible in [`reports/judge-report.md`](../reports/judge-report.md).
 
 ## Other corrections
 
@@ -94,3 +96,4 @@ No reference case could show this, because J1 has no expected answer. It is reco
 - The user-level `fastapi` skill was used to review the web layer after the build. It found a blocking lock inside an `async` route, and unencoded error messages in redirect URLs. Both were fixed, with a test (journal stage 8).
 - PydanticAI counts retries separately per kind, so an unknown tool name looped to the step limit. A hook now enforces one repair in total (journal stage 9).
 - CI first failed on a non-existent major tag of `setup-uv`. The actions are now pinned to exact releases.
+- Stage 10 closed the code-review residuals: an unreadable recording is now `REPLAY_CORRUPT` instead of a crash, `--samples 0` is rejected, a defect seeder no longer indexes an empty list, a rejected-then-repaired submit no longer counts as two, and the coverage gate now includes the `llm`, `web` and `cli` packages.
