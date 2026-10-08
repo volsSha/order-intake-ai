@@ -116,7 +116,7 @@ class Store:
             sql += " WHERE status = ?"
             args = (status,)
         rows = self.conn.execute(sql, args).fetchall()
-        return sorted((dict(r) for r in rows), key=lambda r: _id_key(r["request_id"]))
+        return sorted((dict(r) for r in rows), key=lambda r: id_key(r["request_id"]))
 
     def save_request(self, **fields) -> None:
         existing = self.get_request(fields["request_id"])
@@ -210,12 +210,22 @@ class Store:
                                  (request_id,)).fetchall()
         return [{**dict(r), "usage": _loads(r["usage_json"])} for r in rows]
 
+    def llm_call_count(self, request_id: str) -> int:
+        return self.conn.execute("SELECT COUNT(*) FROM llm_calls WHERE request_id = ?", (request_id,)).fetchone()[0]
+
     def add_tool_call(self, request_id: str, step: int, name: str, arguments, result,
                       llm_call_id: str | None = None) -> None:
-        self.conn.execute(
+        self.add_tool_calls([(request_id, step, name, arguments, result, llm_call_id)])
+
+    def add_tool_calls(self, rows: list[tuple]) -> None:
+        """Rows of (request_id, step, name, arguments, result, llm_call_id), inserted in order with one commit."""
+        if not rows:
+            return
+        self.conn.executemany(
             "INSERT INTO tool_calls (request_id, step, name, arguments_json, result_json, created_at, llm_call_id) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (request_id, step, name, json.dumps(arguments), json.dumps(result), now(), llm_call_id),
+            [(request_id, step, name, json.dumps(arguments), json.dumps(result), now(), llm_call_id)
+             for request_id, step, name, arguments, result, llm_call_id in rows],
         )
         self.conn.commit()
 
@@ -244,5 +254,5 @@ class Store:
         return {r["status"]: r["n"] for r in rows}
 
 
-def _id_key(request_id: str) -> tuple:
+def id_key(request_id: str) -> tuple:
     return tuple(int(p) if p.isdigit() else p for p in re.split(r"(\d+)", request_id))

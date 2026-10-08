@@ -9,11 +9,13 @@ import json
 import shutil
 import tempfile
 from dataclasses import dataclass, replace
+from functools import partial
 from pathlib import Path
 
 from pydantic_evals.evaluators import EvaluationReason, Evaluator, EvaluatorContext
 
 from ..config import Settings
+from ..domain.catalog import Catalog
 from ..llm.replay import ModelFactory
 from ..pipeline import Pipeline
 from ..storage import Store, now
@@ -42,17 +44,19 @@ def observe(store: Store, request_id: str) -> dict:
     """What the reference comparison reads for one request; a plain snapshot that can be copied and mutated."""
     req = store.get_request(request_id) or {}
     return {"request": req, "proposal": store.latest_proposal(request_id),
-            "llm_calls": len(store.llm_calls(request_id)), "order_owner": store.order_owner(req.get("order_ref") or "")}
+            "llm_calls": store.llm_call_count(request_id), "order_owner": store.order_owner(req.get("order_ref") or "")}
 
 
-def compare(exp: dict, request_id: str, observed: dict) -> list[tuple[str, object, object, bool]]:
+def _add(checks: list, name: str, expected, value, ok=None) -> None:
+    checks.append((name, expected, value, expected == value if ok is None else ok))
+
+
+def compare(exp: dict, observed: dict) -> list[tuple[str, object, object, bool]]:
     """Every reference check that only reads the observed state."""
     req, proposal = observed["request"], observed["proposal"]
     codes = codes_of(req, proposal)
     checks: list[tuple[str, object, object, bool]] = []
-
-    def check(name, expected, value, ok=None):
-        checks.append((name, expected, value, expected == value if ok is None else ok))
+    check = partial(_add, checks)
 
     if "status" in exp:
         check("status", exp["status"], req.get("status"))
@@ -76,7 +80,7 @@ def compare(exp: dict, request_id: str, observed: dict) -> list[tuple[str, objec
         check("conflicts_with", exp["conflicts_with"], req.get("related_request_id"))
     if exp.get("new_orders_created") == 0:
         owner = observed["order_owner"]
-        check("no new order for this request", "owner is another request", owner, ok=owner != request_id)
+        check("no new order for this request", "owner is another request", owner, ok=owner != req.get("request_id"))
     if exp.get("llm_called") is False:
         check("model not called", 0, observed["llm_calls"])
     if "status_before" in exp:
@@ -87,7 +91,7 @@ def compare(exp: dict, request_id: str, observed: dict) -> list[tuple[str, objec
 
 
 def reference_verdict(exp: dict, observed: dict) -> tuple[str, list[str]]:
-    failed = [name for name, *_, ok in compare(exp, observed["request"].get("request_id"), observed) if not ok]
+    failed = [name for name, *_, ok in compare(exp, observed) if not ok]
     return ("fail" if failed else "pass"), failed
 
 
@@ -107,10 +111,8 @@ class ReferenceEvaluator(Evaluator):
 def evaluate_case(case: dict, store: Store, pipeline: Pipeline, settings: Settings) -> dict:
     exp = case["expected"]
     rid = case["request_id"]
-    checks = compare(exp, rid, observe(store, rid))
-
-    def check(name, expected, observed, ok=None):
-        checks.append((name, expected, observed, expected == observed if ok is None else ok))
+    checks = compare(exp, observe(store, rid))
+    check = partial(_add, checks)
 
     if exp.get("reprocess_all_twice_changes_order_count") is False:
         orders, calls = store.order_count(), store.conn.execute("SELECT COUNT(*) FROM llm_calls").fetchone()[0]
@@ -151,9 +153,10 @@ def run_checks(settings: Settings, out_dir: Path, model_factory=ModelFactory) ->
     ref = json.loads((settings.data_dir / "reference" / "expected.json").read_text(encoding="utf-8"))
     work = Path(tempfile.mkdtemp(prefix="order-intake-check-"))
     try:
+        catalog = Catalog.load(settings.catalog_path)
         main_settings = replace(settings, db_path=work / "check.db")
         store = Store(main_settings.db_path)
-        pipeline = Pipeline(main_settings, store, model_factory=model_factory())
+        pipeline = Pipeline(main_settings, store, catalog=catalog, model_factory=model_factory())
         processing = pipeline.process_all()
         counts_before = store.status_counts()
         orders_before = store.order_count()
@@ -172,7 +175,7 @@ def run_checks(settings: Settings, out_dir: Path, model_factory=ModelFactory) ->
 
         sim_settings = replace(settings, db_path=work / "simulated.db")
         sim_store = Store(sim_settings.db_path)
-        sim = Pipeline(sim_settings, sim_store,
+        sim = Pipeline(sim_settings, sim_store, catalog=catalog,
                        model_factory=model_factory(simulate={"R1": "model_unavailable", "R5": "invalid_output"}))
         sim.process_all(only={"R1", "R2", "R5"})
         r1, r2, r5 = (sim_store.get_request(x) for x in ("R1", "R2", "R5"))
@@ -210,6 +213,14 @@ def _fmt(value) -> str:
     return text.replace("|", "\\|")
 
 
+def _result(passed: bool) -> str:
+    return "PASS" if passed else "**FAIL**"
+
+
+def _check_row(c: dict) -> str:
+    return f"| {c['name']} | {_fmt(c['expected'])} | {_fmt(c['observed'])} | {_result(c['passed'])} |"
+
+
 def render_markdown(report: dict) -> str:
     out = [
         "# Minimum demonstration — check results",
@@ -228,20 +239,20 @@ def render_markdown(report: dict) -> str:
     ]
     for r in report["cases"]:
         out.append(f"| {r['case_id']} | {r['request_id']} | {r['title']} | {'yes' if r['minimum_demonstration'] else ''} | "
-                   f"{', '.join(r['model_sources']) or 'not called'} | {'PASS' if r['passed'] else '**FAIL**'} |")
+                   f"{', '.join(r['model_sources']) or 'not called'} | {_result(r['passed'])} |")
     out += ["", "## Batch", "", "| Check | Expected | Observed | Result |", "|---|---|---|---|"]
     for c in report["batch"]:
-        out.append(f"| {c['name']} | {_fmt(c['expected'])} | {_fmt(c['observed'])} | {'PASS' if c['passed'] else '**FAIL**'} |")
+        out.append(_check_row(c))
     out += ["", "## Simulated failures (labelled, no API call)", "", "| Check | Expected | Observed | Result |",
             "|---|---|---|---|"]
     for c in report["simulated_failures"]:
-        out.append(f"| {c['name']} | {_fmt(c['expected'])} | {_fmt(c['observed'])} | {'PASS' if c['passed'] else '**FAIL**'} |")
+        out.append(_check_row(c))
     out += ["", "## Case details", ""]
     for r in report["cases"]:
         out += [f"### {r['case_id']} · {r['request_id']} · {r['title']} — {'PASS' if r['passed'] else 'FAIL'}", "",
                 f"Calculation: {r['calculation']}", "", "| Check | Expected | Observed | Result |", "|---|---|---|---|"]
         for c in r["checks"]:
-            out.append(f"| {c['name']} | {_fmt(c['expected'])} | {_fmt(c['observed'])} | {'PASS' if c['passed'] else '**FAIL**'} |")
+            out.append(_check_row(c))
         out.append("")
     out += ["## Processing log", "", "| Request | Status | Action |", "|---|---|---|"]
     for p in report["processing"]:

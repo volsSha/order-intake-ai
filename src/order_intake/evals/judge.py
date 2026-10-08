@@ -15,18 +15,18 @@ from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
-from pydantic_ai import Agent, BinaryContent, ModelRetry, ToolOutput, UsageLimits
+from pydantic_ai import Agent, ModelRetry, ToolOutput, UsageLimits
 from pydantic_ai.exceptions import UnexpectedModelBehavior, UsageLimitExceeded
 from pydantic_evals import Case, Dataset
 from pydantic_evals.evaluators import EvaluationReason, Evaluator, EvaluatorContext
 
 from ..config import Settings, check_judge_model
 from ..domain.catalog import Catalog
-from ..domain.inbox import IMAGE_TYPES
+from ..llm.agent import image_part
 from ..llm.providers import LiveModel, build_judge_model
 from ..llm.replay import LLMError, ModelFactory, ReplayModel
 from ..pipeline import Pipeline
-from ..storage import Store, now
+from ..storage import Store, id_key, now
 from . import report
 from .check import ReferenceEvaluator, observe
 from .defects import seed_defects
@@ -104,8 +104,7 @@ def judge_prompt(case: CaseData, catalog: Catalog, root: Path) -> list:
             + f"\n<proposal>\n{json.dumps(projection(case), indent=2, ensure_ascii=False)}\n</proposal>")
     if not case.attachment_path:
         return [text]
-    path = root / case.attachment_path
-    return [text, BinaryContent(data=path.read_bytes(), media_type=IMAGE_TYPES[path.suffix.lower()])]
+    return [text, image_part(root, case.attachment_path)]
 
 
 def _norm(text: str) -> str:
@@ -265,17 +264,17 @@ class RubricJudge(Evaluator):
 
 # --- suite --------------------------------------------------------------------------------------------
 
-def process_corpus(settings: Settings, store: Store, model_factory) -> list[dict]:
-    processing = Pipeline(settings, store, model_factory=model_factory).process_all()
+def process_corpus(settings: Settings, store: Store, model_factory, catalog: Catalog) -> list[dict]:
+    processing = Pipeline(settings, store, catalog=catalog, model_factory=model_factory).process_all()
     if settings.judge_cases_dir.is_dir():
         extra = replace(settings, requests_dir=settings.judge_cases_dir)
-        processing += Pipeline(extra, store, model_factory=model_factory).process_all()
+        processing += Pipeline(extra, store, catalog=catalog, model_factory=model_factory).process_all()
     return processing
 
 
 def dataset_cases(cases: list[CaseData], defects: list[tuple[CaseData, str]], expected: dict) -> list[Case]:
     out = []
-    for case in sorted(cases, key=lambda c: (c.request_id not in expected, report.natural_key(c.case_id))):
+    for case in sorted(cases, key=lambda c: (c.request_id not in expected, id_key(c.case_id))):
         exp = expected.get(case.request_id)
         label = "pass" if exp is not None and case.model_proposal else None
         out.append(Case(name=case.case_id, inputs=case, expected_output=exp,
@@ -330,7 +329,7 @@ def run_judge(settings: Settings, out_dir: Path, *, judge_mode: str = "replay", 
         for db in (store, judge_store):
             db.conn.execute("PRAGMA synchronous = OFF")  # throwaway databases: skip fsync on every commit
         try:
-            processing = process_corpus(pipe, store, pipeline_factory())
+            processing = process_corpus(pipe, store, pipeline_factory(), catalog)
             cases = [snapshot(store, req) for req in store.list_requests()]
             defects = seed_defects({c.case_id: c for c in cases}, catalog)
             runner = JudgeRunner(replace(settings, llm_mode=judge_mode, db_path=judge_store.db_path), judge_store,
@@ -352,7 +351,7 @@ def run_judge(settings: Settings, out_dir: Path, *, judge_mode: str = "replay", 
     env = envelope(settings)
     baseline_path = out_dir / "judge-baseline.json"
     previous = json.loads(baseline_path.read_text(encoding="utf-8")) if baseline_path.is_file() else None
-    missing = [r["case_id"] for r in rows if r["judge"]["status"] in ("judge_unavailable", "pipeline_unavailable")]
+    missing = [r["case_id"] for r in rows if r["judge"]["status"] in report.UNAVAILABLE]
     results = {
         "generated_at": now(), "envelope": env, "model_id": settings.model_id, "judge_mode": judge_mode,
         "pipeline_mode": pipeline_mode, "samples": samples, "criteria": list(CRITERIA),

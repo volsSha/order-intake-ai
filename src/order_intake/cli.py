@@ -1,5 +1,6 @@
 import argparse
 import sys
+from pathlib import Path
 
 from .config import load_settings
 from .llm.replay import SIMULATIONS, ModelFactory
@@ -64,8 +65,6 @@ def cmd_check(args) -> int:
 
 
 def cmd_judge(args) -> int:
-    from pathlib import Path
-
     from .evals.judge import run_judge
 
     settings = load_settings()

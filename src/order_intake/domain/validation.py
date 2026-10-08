@@ -39,6 +39,8 @@ FINDING_LABELS = {
 }
 
 CUSTOMER_FACING = {"UNKNOWN_PRODUCT", "AMBIGUOUS_PRODUCT", "AMBIGUOUS_QUANTITY", "NON_ITEM_UNIT", "NO_LINES"}
+CLARIFICATION_GREETING = "Hello,\n\nThank you for order {order_ref}. Before we prepare it, please confirm:\n"
+CLARIFICATION_CLOSING = "\n\nKind regards,\nOrder desk"
 
 NUMBER_WORDS = {
     "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9,
@@ -47,6 +49,7 @@ NUMBER_WORDS = {
 }
 TENS_WORDS = {"twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80,
               "ninety": 90}
+ALL_NUMBER_WORDS = {**NUMBER_WORDS, **TENS_WORDS}
 COMPOUND_NUMBER = re.compile(rf"\b({'|'.join(TENS_WORDS)})[- ]({'|'.join(list(NUMBER_WORDS)[:9])})\b")
 CONTAINER_WORDS = re.compile(r"\b(box(es)?|packs?|cases?|cartons?|crates?|pallets?)\b")
 
@@ -63,8 +66,8 @@ def numbers_in(text: str) -> set[int]:
     lowered = text.lower()
     found = {int(n) for n in re.findall(r"\d+", lowered)}
     found |= {TENS_WORDS[t] + NUMBER_WORDS[u] for t, u in COMPOUND_NUMBER.findall(lowered)}
-    words = {**NUMBER_WORDS, **TENS_WORDS}
-    found |= {words[w] for w in re.findall(r"[a-z]+", COMPOUND_NUMBER.sub(" ", lowered)) if w in words}
+    found |= {ALL_NUMBER_WORDS[w] for w in re.findall(r"[a-z]+", COMPOUND_NUMBER.sub(" ", lowered))
+              if w in ALL_NUMBER_WORDS}
     return found
 
 
@@ -184,8 +187,8 @@ def clarification_message(order_ref: str, findings: list[dict], lines: list[dict
     customer = [f for f in findings if f["code"] in CUSTOMER_FACING and f["severity"] == BLOCKING]
     if not customer:
         return None
-    greeting = f"Hello,\n\nThank you for order {order_ref}. Before we prepare it, please confirm:\n"
-    closing = "\n\nKind regards,\nOrder desk"
+    greeting = CLARIFICATION_GREETING.format(order_ref=order_ref)
+    closing = CLARIFICATION_CLOSING
     # Model wording only when every customer-facing issue came from the model; code adds the fixed frame.
     if model_draft and model_draft.strip() and all(f["source"] == "model" for f in customer):
         return greeting + model_draft.strip() + closing

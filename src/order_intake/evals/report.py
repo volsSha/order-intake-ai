@@ -2,7 +2,6 @@
 
 import hashlib
 import json
-import re
 from collections import Counter
 from pathlib import Path
 
@@ -13,10 +12,6 @@ DETECTION_TARGET = 0.8
 FALSE_FAIL_MAX = 1
 UNAVAILABLE = ("judge_unavailable", "pipeline_unavailable")
 SHORT = {"pass": "P", "fail": "F", "cannot_verify": "?"}
-
-
-def natural_key(text: str) -> tuple:
-    return tuple(int(p) if p.isdigit() else p for p in re.split(r"(\d+)", text))
 
 
 def rate(count: int, n: int) -> dict:

@@ -1,6 +1,7 @@
 """Extraction agent: the model may only search the catalog and submit one draft, within a request cap."""
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Annotated
 
 from pydantic import Field
@@ -39,14 +40,18 @@ class Deps:
     looked_up: set[str] = field(default_factory=set)
 
 
+def image_part(root: Path, relative: str) -> BinaryContent:
+    path = root / relative
+    return BinaryContent(data=path.read_bytes(), media_type=IMAGE_TYPES[path.suffix.lower()])
+
+
 def user_prompt(request: IncomingRequest, settings: Settings) -> list:
     text = (f"Order request {request.request_id}, order reference {request.order_ref}.\n"
             f"<request>\n{request.body or '(empty body)'}\n</request>")
     if not request.attachment_path:
         return [text]
-    path = settings.root / request.attachment_path
     return [text + "\nThe request has an attached image; read the order details from it.",
-            BinaryContent(data=path.read_bytes(), media_type=IMAGE_TYPES[path.suffix.lower()])]
+            image_part(settings.root, request.attachment_path)]
 
 
 def _repair_budget() -> Hooks:
@@ -108,11 +113,13 @@ def record_tool_calls(store: Store, request_id: str, messages: list[ModelMessage
     replies = {p.tool_call_id: p for m in messages if isinstance(m, ModelRequest) for p in m.parts
                if hasattr(p, "tool_call_id")}
     responses = [m for m in messages if isinstance(m, ModelResponse)]
+    rows = []
     for step, (response, call_id) in enumerate(zip(responses, call_ids, strict=False), start=1):
         for call in response.tool_calls:
             reply = replies.get(call.tool_call_id)
             result = _reply(reply) if reply else ({"error": failure} if failure else None)
-            store.add_tool_call(request_id, step, call.tool_name, _arguments(call), result, llm_call_id=call_id)
+            rows.append((request_id, step, call.tool_name, _arguments(call), result, call_id))
+    store.add_tool_calls(rows)
 
 
 def extract(request: IncomingRequest, catalog: Catalog, model: ReplayModel, settings: Settings,
