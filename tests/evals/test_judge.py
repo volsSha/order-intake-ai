@@ -16,6 +16,7 @@ from order_intake.evals.judge import (
     majority,
     overall_verdict,
     quote_found,
+    run_judge,
     sample_agreement,
     verify,
 )
@@ -281,6 +282,19 @@ def test_baseline_is_written_only_on_request_and_compared_on_the_next_run(judge_
 def test_baseline_is_not_updated_from_an_incomplete_run(judge_run, tmp_path):
     results = judge_run(mode="replay", update_baseline=True)
     assert results["exit_code"] == 1 and results["baseline"]["update"].startswith("not updated")
+    assert not (tmp_path / "out" / "judge-baseline.json").exists()
+
+
+@pytest.mark.integration
+def test_missing_pipeline_recordings_are_unavailable_not_judged_and_block_the_baseline(judge_settings, tmp_path):
+    empty = tmp_path / "empty-replay"
+    empty.mkdir()
+    results = run_judge(replace(judge_settings, replay_dir=empty), tmp_path / "out", judge_mode="live", samples=1,
+                        update_baseline=True, judge_models=lambda: FakeJudges())
+    unavailable = [r for r in results["cases"] if r["judge"]["status"] == "pipeline_unavailable"]
+    assert unavailable and not any(r["judge"]["status"] == "judged" for r in results["cases"])
+    assert {r["case_id"] for r in unavailable} <= set(results["missing_recordings"])
+    assert results["exit_code"] == 1
     assert not (tmp_path / "out" / "judge-baseline.json").exists()
 
 
