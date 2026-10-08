@@ -89,7 +89,7 @@ def compare_baseline(baseline: dict | None, rows: list[dict], envelope: dict) ->
         changed = [k for k in envelope if before_env.get(k) != envelope[k]]
         return {"status": "envelope_mismatch", "regressions": [],
                 "message": f"warning: the baseline was made with a different {', '.join(changed)}; not compared"}
-    regressions, changes, compared = [], 0, 0
+    regressions, improvements, changes, compared = [], [], 0, 0
     for r in rows:
         before = baseline["cases"].get(r["case_id"])
         if r["judge"]["status"] != "judged" or before is None:
@@ -98,13 +98,18 @@ def compare_baseline(baseline: dict | None, rows: list[dict], envelope: dict) ->
             if criterion not in before:
                 continue
             compared += 1
+            flip = {"case_id": r["case_id"], "criterion": criterion, "before": before[criterion],
+                    "after": now_["verdict"], "samples": now_["samples"]}
             if before[criterion] == "pass" and now_["verdict"] == "fail":
-                regressions.append({"case_id": r["case_id"], "criterion": criterion, "before": "pass",
-                                    "after": "fail", "samples": now_["samples"]})
+                regressions.append(flip)
+            elif before[criterion] == "fail" and now_["verdict"] == "pass":
+                improvements.append(flip)
             elif before[criterion] != now_["verdict"]:
                 changes += 1
-    return {"status": "compared", "regressions": regressions, "other_changes": changes, "compared": compared,
-            "message": f"{len(regressions)} regressions in {compared} compared case criteria"}
+    named = f", {len(improvements)} improvements" if improvements else ""
+    return {"status": "compared", "regressions": regressions, "improvements": improvements, "other_changes": changes,
+            "compared": compared,
+            "message": f"{len(regressions)} regressions{named} in {compared} compared case criteria"}
 
 
 def corpus_fingerprint(settings: Settings) -> str:
@@ -202,10 +207,12 @@ def render_markdown(results: dict) -> str:
                                           if results["baseline"].get("update") else ""),
         "",
     ]
-    if results["baseline"]["regressions"]:
-        out += ["| Case | Criterion | Before | After | Samples |", "|---|---|---|---|---|"]
-        for g in results["baseline"]["regressions"]:
-            out.append(f"| {g['case_id']} | {g['criterion']} | {g['before']} | {g['after']} | "
+    flips = [("regression", g) for g in results["baseline"]["regressions"]]
+    flips += [("improvement", g) for g in results["baseline"].get("improvements", [])]
+    if flips:
+        out += ["| Change | Case | Criterion | Before | After | Samples |", "|---|---|---|---|---|---|"]
+        for kind, g in flips:
+            out.append(f"| {kind} | {g['case_id']} | {g['criterion']} | {g['before']} | {g['after']} | "
                        f"{', '.join(g['samples'])} |")
         out.append("")
     legend = ", ".join(f"{i + 1} {c}" for i, c in enumerate(criteria))

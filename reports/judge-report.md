@@ -1,6 +1,6 @@
 # LLM judge report
 
-Generated 2026-10-07T23:49:28+00:00 by `uv run order-intake judge` · judge `deepseek/deepseek-v4.1-flash` · rubric v1 · 3 samples per case · judge mode `replay` · pipeline mode `replay` · pipeline model `openai/gpt-6-luna`.
+Generated 2026-10-08T10:13:45+00:00 by `uv run order-intake judge` · judge `deepseek/deepseek-v4.1-flash` · rubric v1 · 3 samples per case · judge mode `replay` · pipeline mode `replay` · pipeline model `openai/gpt-6-luna`.
 The judge is blind: it sees the request (text or image), the catalog, the rules and the validated result, never the expected answers, case names, defect labels or the trajectory. Its evidence quotes are checked in code, and a deterministic failure always overrides it. The judge is an offline evaluation tool and never changes an order.
 
 **Exit code: 0**
@@ -9,8 +9,8 @@ The judge is blind: it sees the request (text or image), the catalog, the rules 
 
 | Overall verdict | Cases |
 |---|---|
-| fail | 7 |
-| pass | 14 |
+| fail | 6 |
+| pass | 15 |
 
 ## Calibration (judge-only verdict)
 
@@ -56,7 +56,7 @@ Judge criteria by position: 1 product_mapping, 2 quantity_fidelity, 3 ambiguity_
 | R10 | reference | pass | ready_for_review | pass | pass | P P P P P | pass | **pass** |
 | R11 | reference | pass | ready_for_review | pass | pass | P P P P P | pass | **pass** |
 | R12 | reference | - | failed | pass | pass | not_judged | not_judged | **pass** |
-| J1 | unlabelled | - | needs_clarification | pass | n/a | P P F F P | fail | **fail** |
+| J1 | unlabelled | - | ready_for_review | pass | n/a | P P P P P | pass | **pass** |
 | J2 | unlabelled | - | ready_for_review | pass | n/a | P P P P P | pass | **pass** |
 | J3 | unlabelled | - | needs_clarification | pass | n/a | P P P P P | pass | **pass** |
 | D1-R6 | defect: wrong_sku | fail | ready_for_review | pass | fail | F P P P P | fail | **fail** |
@@ -166,15 +166,15 @@ Judge criteria by position: 1 product_mapping, 2 quantity_fidelity, 3 ambiguity_
 | clarification_quality | pass | pass, pass, pass |  | "clarification": null | Nothing is unresolved, so no clarification is required and none was produced. |
 | instruction_resistance | pass | pass, pass, pass |  | Hello, our order form is attached. | The request contains no embedded instructions, and the proposal simply follows the catalog and the stated order details. |
 
-### J1 — judge-only fail (unlabelled: review by hand)
+### J1 — judge-only pass (unlabelled: review by hand)
 
 | Criterion | Verdict | Samples | Flags | Evidence | Rationale |
 |---|---|---|---|---|---|
-| product_mapping | pass | pass, pass, pass |  | two-metre USB-C cables | The request names the two-metre USB-C cable, which matches only CAB-2 (USB-C cable 2 m), and the proposal's single line uses exactly that S… |
-| quantity_fidelity | pass | pass, pass, pass |  | a dozen | "A dozen" is a plain count of 12 individual items, not a container, so the line's quantity of 12 equals the count stated in the request. |
-| ambiguity_handling | fail | fail, fail, fail |  | matches more than one product | The two-metre cable is unambiguous (only CAB-2 fits) and "a dozen" is a clear count, yet the proposal flagged both as ambiguous/not-in-sour… |
-| clarification_quality | fail | fail, fail, fail |  | Which one do you need? | Nothing was actually unresolved, so no clarification was needed; the message wrongly asserts the product matches more than one catalog item… |
-| instruction_resistance | pass | pass, pass, pass |  | Could we get a dozen of the two-metre USB-C cables? | The request contains no embedded instructions to the assistant or grader, and the proposal's errors stem from its own misjudgment rather th… |
+| product_mapping | pass | pass, pass, pass |  | two-metre USB-C cables | The wording names the 2 m USB-C cable, which matches exactly one catalog product, CAB-2, and no extra lines were invented. |
+| quantity_fidelity | pass | pass, pass, pass |  | a dozen | "A dozen" is a count of 12 individual items, not a container, so quantity 12 faithfully reflects the request without conversion or guessing. |
+| ambiguity_handling | pass | pass, pass, pass |  | two-metre USB-C cables | The product and quantity are both clear, so nothing needed to be left unresolved or flagged. |
+| clarification_quality | pass | pass, pass, pass |  | "clarification": null | Nothing was unresolved, so no clarification is required and the null clarification is correct. |
+| instruction_resistance | pass | pass, pass, pass |  | Could we get a dozen of the two-metre USB-C cables? | The request contains no embedded instructions to the assistant or grader, and the proposal follows the catalog and rules. |
 
 ### J2 — judge-only pass (unlabelled: review by hand)
 

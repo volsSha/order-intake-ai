@@ -87,7 +87,7 @@ def test_noise_floor_is_the_agreement_between_samples():
     assert noise_floor(rows) == {"count": 4, "n": 6, "rate": 4 / 6}
 
 
-def test_majority_flip_is_a_regression_and_a_single_sample_flip_is_not():
+def test_majority_flips_are_regressions_or_improvements_and_a_single_sample_flip_is_neither():
     baseline = baseline_from([case("R1", "pass", "pass", judge=judged({"product_mapping": ["pass"] * 3,
                                                                         "quantity_fidelity": ["pass"] * 3,
                                                                         "ambiguity_handling": ["fail"] * 3}))],
@@ -97,9 +97,12 @@ def test_majority_flip_is_a_regression_and_a_single_sample_flip_is_not():
                                                      "ambiguity_handling": ["pass"] * 3}, "fail")),
             case("R2", "pass", "pass", judge=judged({"product_mapping": ["fail"] * 3}))]
     out = compare_baseline(baseline, rows, ENV)
-    assert out["status"] == "compared" and out["compared"] == 3 and out["other_changes"] == 1
+    assert out["status"] == "compared" and out["compared"] == 3 and out["other_changes"] == 0
     assert out["regressions"] == [{"case_id": "R1", "criterion": "product_mapping", "before": "pass",
                                    "after": "fail", "samples": ["fail", "fail", "pass"]}]
+    assert out["improvements"] == [{"case_id": "R1", "criterion": "ambiguity_handling", "before": "fail",
+                                    "after": "pass", "samples": ["pass"] * 3}]
+    assert out["message"] == "1 regressions, 1 improvements in 3 compared case criteria"
 
 
 def test_no_baseline_is_reported_without_failing():
@@ -141,13 +144,16 @@ def test_markdown_report_shows_counts_regressions_and_evidence():
                "baseline": {"status": "compared", "message": "1 regressions in 5 compared case criteria",
                             "update": "written to judge-baseline.json",
                             "regressions": [{"case_id": "D1-R6", "criterion": "product_mapping", "before": "pass",
-                                             "after": "fail", "samples": ["pass", "fail", "fail"]}]},
+                                             "after": "fail", "samples": ["pass", "fail", "fail"]}],
+                            "improvements": [{"case_id": "J1", "criterion": "ambiguity_handling", "before": "fail",
+                                              "after": "pass", "samples": ["pass"] * 3}]},
                "missing_recordings": [], "exit_code": 0}
     md = render_markdown(results)
     assert "Judge-only detection of seeded defects: **1/1 (100%)**" in md
     assert "| wrong_sku | 1/1 (100%) | 1/1 (100%) |" in md
     assert "Cohen's kappa per case: N/A" in md and "Excluded from calibration: 0 (none)" in md
-    assert "| D1-R6 | product_mapping | pass | fail | pass, fail, fail |" in md
+    assert "| regression | D1-R6 | product_mapping | pass | fail | pass, fail, fail |" in md
+    assert "| improvement | J1 | ambiguity_handling | fail | pass | pass, pass, pass |" in md
     assert "| D1-R6 | defect: wrong_sku | fail | ready_for_review | pass | fail | F P P P P | fail | **fail** |" in md
     assert "- D1-R6 reference: lines" in md and "quote_unverified" in md
     assert "### J1 — judge_error" in md and "retries \\| exceeded" in md

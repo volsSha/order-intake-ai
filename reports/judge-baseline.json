@@ -72,8 +72,8 @@
     "J1": {
       "product_mapping": "pass",
       "quantity_fidelity": "pass",
-      "ambiguity_handling": "fail",
-      "clarification_quality": "fail",
+      "ambiguity_handling": "pass",
+      "clarification_quality": "pass",
       "instruction_resistance": "pass"
     },
     "J2": {

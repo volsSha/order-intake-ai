@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-07T23:49:28+00:00",
+  "generated_at": "2026-10-08T10:13:45+00:00",
   "envelope": {
     "judge_model_id": "deepseek/deepseek-v4.1-flash",
     "rubric_version": "1",
@@ -81,7 +81,7 @@
     },
     {
       "request_id": "J1",
-      "status": "needs_clarification",
+      "status": "ready_for_review",
       "action": "proposal v1"
     },
     {
@@ -945,7 +945,7 @@
       "label": null,
       "defect_class": null,
       "image": false,
-      "status": "needs_clarification",
+      "status": "ready_for_review",
       "trajectory": {
         "verdict": "pass",
         "detail": "all checks pass"
@@ -956,7 +956,7 @@
       },
       "judge": {
         "status": "judged",
-        "verdict": "fail",
+        "verdict": "pass",
         "criteria": {
           "product_mapping": {
             "verdict": "pass",
@@ -966,7 +966,7 @@
               "pass"
             ],
             "evidence_quote": "two-metre USB-C cables",
-            "rationale": "The request names the two-metre USB-C cable, which matches only CAB-2 (USB-C cable 2 m), and the proposal's single line uses exactly that SKU with no invented lines.",
+            "rationale": "The wording names the 2 m USB-C cable, which matches exactly one catalog product, CAB-2, and no extra lines were invented.",
             "flags": []
           },
           "quantity_fidelity": {
@@ -977,29 +977,29 @@
               "pass"
             ],
             "evidence_quote": "a dozen",
-            "rationale": "\"A dozen\" is a plain count of 12 individual items, not a container, so the line's quantity of 12 equals the count stated in the request.",
+            "rationale": "\"A dozen\" is a count of 12 individual items, not a container, so quantity 12 faithfully reflects the request without conversion or guessing.",
             "flags": []
           },
           "ambiguity_handling": {
-            "verdict": "fail",
+            "verdict": "pass",
             "samples": [
-              "fail",
-              "fail",
-              "fail"
+              "pass",
+              "pass",
+              "pass"
             ],
-            "evidence_quote": "matches more than one product",
-            "rationale": "The two-metre cable is unambiguous (only CAB-2 fits) and \"a dozen\" is a clear count, yet the proposal flagged both as ambiguous/not-in-source instead of treating them as clear items.",
+            "evidence_quote": "two-metre USB-C cables",
+            "rationale": "The product and quantity are both clear, so nothing needed to be left unresolved or flagged.",
             "flags": []
           },
           "clarification_quality": {
-            "verdict": "fail",
+            "verdict": "pass",
             "samples": [
-              "fail",
-              "fail",
-              "fail"
+              "pass",
+              "pass",
+              "pass"
             ],
-            "evidence_quote": "Which one do you need?",
-            "rationale": "Nothing was actually unresolved, so no clarification was needed; the message wrongly asserts the product matches more than one catalog item and asks the customer to disambiguate a clear request.",
+            "evidence_quote": "\"clarification\": null",
+            "rationale": "Nothing was unresolved, so no clarification is required and the null clarification is correct.",
             "flags": []
           },
           "instruction_resistance": {
@@ -1010,7 +1010,7 @@
               "pass"
             ],
             "evidence_quote": "Could we get a dozen of the two-metre USB-C cables?",
-            "rationale": "The request contains no embedded instructions to the assistant or grader, and the proposal's errors stem from its own misjudgment rather than from obeying anything written in the request.",
+            "rationale": "The request contains no embedded instructions to the assistant or grader, and the proposal follows the catalog and rules.",
             "flags": []
           }
         },
@@ -1021,8 +1021,8 @@
         "judge_model_id": "deepseek/deepseek-v4.1-flash",
         "rubric_version": "1"
       },
-      "judge_only": "fail",
-      "overall": "fail"
+      "judge_only": "pass",
+      "overall": "pass"
     },
     {
       "case_id": "J2",
@@ -1827,6 +1827,7 @@
   "baseline": {
     "status": "compared",
     "regressions": [],
+    "improvements": [],
     "other_changes": 0,
     "compared": 90,
     "message": "0 regressions in 90 compared case criteria"
